@@ -1,32 +1,27 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import Google from "next-auth/providers/google";
-import Discord from "next-auth/providers/discord";
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import { db } from "@/lib/db";
-import { users } from "../../database/schema";
+// Certifique-se que este caminho aponta para o seu schema do Drizzle
+import { users } from "../../database/schema"; 
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
+import authConfig from "./auth.config"; // <--- Importa a config leve
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: DrizzleAdapter(db),
   session: { strategy: "jwt" },
   secret: process.env.AUTH_SECRET,
-  pages: {
-    signIn: "/auth/login",
-  },
+  
+  // Espalha a configuração leve (Callbacks, Pages, etc)
+  ...authConfig,
+
   providers: [
-    Google({
-      clientId: process.env.AUTH_GOOGLE_ID,
-      clientSecret: process.env.AUTH_GOOGLE_SECRET,
-      allowDangerousEmailAccountLinking: true, // Permite vincular conta Google se o email já existir via senha
-    }),
-    Discord({
-      clientId: process.env.AUTH_DISCORD_ID,
-      clientSecret: process.env.AUTH_DISCORD_SECRET,
-      allowDangerousEmailAccountLinking: true,
-    }),
+    // Adiciona novamente os providers leves (Google/Discord) para garantir que estejam registrados
+    ...authConfig.providers,
+    
+    // Adiciona o provider de Credenciais (Que só funciona no ambiente Node.js)
     Credentials({
       name: "Credentials",
       credentials: {
@@ -34,6 +29,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         password: { label: "Password", type: "password" },
       },
       authorize: async (credentials) => {
+        // 1. Validação dos tipos de entrada
         const parsedCredentials = z
           .object({ email: z.string().email(), password: z.string().min(6) })
           .safeParse(credentials);
@@ -42,6 +38,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         const { email, password } = parsedCredentials.data;
 
+        // 2. Busca no banco
         const [user] = await db
           .select()
           .from(users)
@@ -49,6 +46,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         if (!user || !user.password) return null;
 
+        // 3. Compara a senha
         const passwordsMatch = await bcrypt.compare(password, user.password);
 
         if (passwordsMatch) return user;
@@ -56,18 +54,4 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       },
     }),
   ],
-  callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        token.sub = user.id;
-      }
-      return token;
-    },
-    async session({ session, token }) {
-      if (token.sub && session.user) {
-        session.user.id = token.sub;
-      }
-      return session;
-    },
-  },
 });

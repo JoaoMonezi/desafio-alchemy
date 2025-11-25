@@ -3,28 +3,27 @@
 import { db } from "@/lib/db";
 import { users, passwordResetTokens } from "../../database/schema";
 import { eq } from "drizzle-orm";
-import { generatePasswordResetToken, getPasswordResetTokenByToken } from "@/lib/tokens";
-import { sendPasswordResetEmail } from "@/lib/mail";
+import { generatePasswordResetToken, getPasswordResetTokenByToken } from "@/_shared/services/tokens";
+import { sendPasswordResetEmail } from "@/_shared/services/mail";
 import bcrypt from "bcryptjs";
+import { passwordSchema } from "@/_shared/util/schemas";
 
-// Ação 1: Usuário pede o reset (digita o email)
-export const reset = async (formData: FormData) => {
+// Ação 1: Reset (Agora avisa se o email não existe)
+export const reset = async (prevState: any, formData: FormData) => {
   const email = formData.get("email") as string;
 
   if (!email) return { error: "Email é obrigatório" };
 
-  // Verifica se usuário existe
   const [existingUser] = await db
     .select()
     .from(users)
     .where(eq(users.email, email));
 
+  // MUDANÇA: Agora retornamos erro explícito em vez de sucesso falso
   if (!existingUser) {
-    // Por segurança, não dizemos se o email existe ou não, apenas dizemos "Email enviado"
-    return { success: "Email de redefinição enviado!" };
+    return { error: "Email não encontrado!" };
   }
 
-  // Gera token e envia email
   const passwordResetToken = await generatePasswordResetToken(email);
   await sendPasswordResetEmail(
     passwordResetToken.email,
@@ -34,27 +33,34 @@ export const reset = async (formData: FormData) => {
   return { success: "Email de redefinição enviado!" };
 };
 
-// Ação 2: Usuário define a nova senha
-export const newPassword = async (token: string | null, formData: FormData) => {
+// Ação 2: Nova Senha
+export const newPassword = async (prevState: any, formData: FormData) => {
   const password = formData.get("password") as string;
+  const token = formData.get("token") as string;
 
-  if (!token) return { error: "Token ausente!" };
-  if (!password) return { error: "Senha é obrigatória!" };
+  if (!token) {
+    return { error: "Token ausente! Tente clicar no link do email novamente." };
+  }
 
-  // 1. Valida o token no banco
+  // 1. Validação Zod (Senha Forte)
+  const validation = passwordSchema.safeParse(password);
+
+  if (!validation.success) {
+    return { error: validation.error.issues[0].message };
+  }
+
+  // 2. Valida o token no banco
   const existingToken = await getPasswordResetTokenByToken(token);
 
   if (!existingToken) {
-    return { error: "Token inválido!" };
+    return { error: "Token inválido! Solicite uma nova redefinição." };
   }
 
-  // 2. Verifica se expirou
   const hasExpired = new Date(existingToken.expires) < new Date();
   if (hasExpired) {
-    return { error: "Token expirado!" };
+    return { error: "O Token expirou! Solicite um novo email." };
   }
 
-  // 3. Encontra o usuário
   const [existingUser] = await db
     .select()
     .from(users)
@@ -64,7 +70,6 @@ export const newPassword = async (token: string | null, formData: FormData) => {
     return { error: "Email não existe!" };
   }
 
-  // 4. Hash da nova senha e atualização
   const hashedPassword = await bcrypt.hash(password, 10);
 
   await db
@@ -72,7 +77,6 @@ export const newPassword = async (token: string | null, formData: FormData) => {
     .set({ password: hashedPassword })
     .where(eq(users.id, existingUser.id));
 
-  // 5. Apaga o token usado
   await db
     .delete(passwordResetTokens)
     .where(eq(passwordResetTokens.id, existingToken.id));
