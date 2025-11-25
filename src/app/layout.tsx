@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { Toaster } from "@/_shared/components/sonner"; // <--- IMPORTANTE: Componente de Toast
+import { Toaster } from "@/_shared/components//sonner";
+import { TRPCProvider } from "@/components/providers/trpc-provider"; // <--- IMPORTAR O PROVIDER
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -14,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Task Manager", // <--- Título atualizado
+  title: "Task Manager",
   description: "Gerenciador de tarefas T3 Stack",
 };
 
@@ -28,8 +29,11 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
-        <Toaster />
+        {/* Envolvemos tudo com o Provider do tRPC */}
+        <TRPCProvider>
+          {children}
+          <Toaster />
+        </TRPCProvider>
       </body>
     </html>
   );
