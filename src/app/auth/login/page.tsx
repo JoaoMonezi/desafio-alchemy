@@ -33,6 +33,11 @@ export default function LoginPage() {
             <Button type="submit" className="w-full">
               Entrar
             </Button>
+            <div className="flex justify-end">
+              <Link href="/auth/reset" className="text-sm text-blue-600 hover:underline">
+                Esqueci minha senha
+              </Link>
+            </div>
           </form>
 
           <div className="mt-4 text-center text-sm">
