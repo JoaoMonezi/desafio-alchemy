@@ -1,26 +1,24 @@
 import { createTRPCRouter, protectedProcedure } from "@/lib/trpc/init";
 import { tasks } from "../../../database/schema";
 import { createTaskSchema, updateTaskSchema, filterTaskSchema } from "./schema";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, gte, lte } from "drizzle-orm"; 
 import { z } from "zod";
 
 export const tasksRouter = createTRPCRouter({
-  // 1. CRIAR TAREFA
   create: protectedProcedure
     .input(createTaskSchema)
     .mutation(async ({ ctx, input }) => {
       await ctx.db.insert(tasks).values({
         ...input,
-        userId: ctx.session.user.id, // Associa a tarefa ao usuário logado
+        userId: ctx.session.user.id,
       });
     }),
 
-  // 2. LISTAR TAREFAS (Com filtros opcionais)
+  // ATUALIZADO: Lógica de Filtros Completa
   getAll: protectedProcedure
     .input(filterTaskSchema.optional())
     .query(async ({ ctx, input }) => {
-      // Filtros dinâmicos
-      const filters = [eq(tasks.userId, ctx.session.user.id)]; // Sempre filtra pelo usuário
+      const filters = [eq(tasks.userId, ctx.session.user.id)];
 
       if (input?.status) {
         filters.push(eq(tasks.status, input.status));
@@ -28,42 +26,36 @@ export const tasksRouter = createTRPCRouter({
       if (input?.priority) {
         filters.push(eq(tasks.priority, input.priority));
       }
+      // Filtro de Data (De... Até...)
+      if (input?.from) {
+        filters.push(gte(tasks.dueDate, input.from));
+      }
+      if (input?.to) {
+        filters.push(lte(tasks.dueDate, input.to));
+      }
 
       return ctx.db
         .select()
         .from(tasks)
         .where(and(...filters))
-        .orderBy(desc(tasks.createdAt)); // Mais recentes primeiro
+        .orderBy(desc(tasks.createdAt));
     }),
 
-  // 3. ATUALIZAR TAREFA
   update: protectedProcedure
     .input(updateTaskSchema)
     .mutation(async ({ ctx, input }) => {
       const { id, ...updateData } = input;
-
       await ctx.db
         .update(tasks)
         .set(updateData)
-        .where(
-          and(
-            eq(tasks.id, id),
-            eq(tasks.userId, ctx.session.user.id) // Segurança: só atualiza se for dono
-          )
-        );
+        .where(and(eq(tasks.id, id), eq(tasks.userId, ctx.session.user.id)));
     }),
 
-  // 4. DELETAR TAREFA
   delete: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       await ctx.db
         .delete(tasks)
-        .where(
-          and(
-            eq(tasks.id, input.id),
-            eq(tasks.userId, ctx.session.user.id) // Segurança: só deleta se for dono
-          )
-        );
+        .where(and(eq(tasks.id, input.id), eq(tasks.userId, ctx.session.user.id)));
     }),
 });

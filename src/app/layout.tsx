@@ -1,8 +1,12 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { Toaster } from "@/_shared/components//sonner";
-import { TRPCProvider } from "@/components/providers/trpc-provider"; // <--- IMPORTAR O PROVIDER
+
+// Imports adjusted to your structure
+// Note: If Toaster is red, check if the path matches where you moved the file
+import { Toaster } from "@/_shared/components/sonner"; 
+import { TRPCProvider } from "@/components/providers/trpc-provider";
+import { SessionProvider } from "next-auth/react"; // <--- THE MISSING PIECE
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -29,11 +33,16 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {/* Envolvemos tudo com o Provider do tRPC */}
-        <TRPCProvider>
-          {children}
-          <Toaster />
-        </TRPCProvider>
+        {/* 1. Auth Provider (Wraps everything) */}
+        <SessionProvider>
+          
+          {/* 2. Data Provider (tRPC) */}
+          <TRPCProvider>
+            {children}
+            <Toaster />
+          </TRPCProvider>
+
+        </SessionProvider>
       </body>
     </html>
   );
