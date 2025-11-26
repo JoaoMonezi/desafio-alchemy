@@ -1,19 +1,22 @@
 import { createTRPCRouter, publicProcedure, protectedProcedure } from "./init";
+import { tasksRouter } from "@/features/TaskManager/router"; // <--- Importamos o roteador da feature
 
 export const appRouter = createTRPCRouter({
-  // Rota simples para testar se o servidor está vivo (Pública)
+  // --- Rotas de Teste (Pode manter ou apagar depois) ---
   healthcheck: publicProcedure.query(() => {
     return { status: "ok", message: "tRPC funcionando a todo vapor! 🚀" };
   }),
 
-  // Rota que só usuários logados conseguem chamar (Protegida)
   secretMessage: protectedProcedure.query(({ ctx }) => {
     return { 
       message: `Olá, ${ctx.session.user.name}! Você tem acesso à área secreta.`,
       serverTime: new Date(),
     };
   }),
+
+  // --- Feature: Gerenciador de Tarefas ---
+  tasks: tasksRouter, // <--- Adicionamos aqui. Agora 'trpc.tasks.*' existe!
 });
 
-// Exportamos o TIPO do roteador para o Frontend usar (Type Inference)
-export type AppRouter = typeof appRouter
+// Exportamos o tipo para o Frontend usar
+export type AppRouter = typeof appRouter;

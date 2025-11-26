@@ -1,7 +1,8 @@
 import { auth, signOut } from "@/Config/auth";
 import { redirect } from "next/navigation";
 import { Button } from "@/_shared/components/button";
-import { DebugTrpc } from "@/app/_components/debug-trpc"; // <--- IMPORTAR AQUI
+import { DebugTrpc } from "@/app/_components/debug-trpc";
+import { TaskDebugger } from "@/app/_components/task-debugger";
 
 export default async function Dashboard() {
   const session = await auth();
@@ -32,7 +33,9 @@ export default async function Dashboard() {
 
       {/* Área de Diagnóstico do tRPC */}
       <h2 className="text-lg font-semibold mb-4">Status do Sistema</h2>
-      <DebugTrpc /> {/* <--- ADICIONAR O COMPONENTE AQUI */}
+      <DebugTrpc /> 
+
+      <TaskDebugger />
       
     </div>
   );
