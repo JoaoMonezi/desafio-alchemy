@@ -1,19 +1,23 @@
 import { create } from "zustand";
+import { DateRange } from "react-day-picker";
 
 type Status = "TODO" | "IN_PROGRESS" | "DONE";
 type Priority = "LOW" | "MEDIUM" | "HIGH";
+type SortOrder = "asc" | "desc"; // ✅ Novo Tipo
 
 interface TaskFilters {
   status?: Status;
   priority?: Priority;
-  date?: Date;
+  dateRange?: DateRange;
+  sort?: SortOrder; // ✅ Novo Estado
 }
 
 interface TaskStore {
   filters: TaskFilters;
   setStatusFilter: (status?: Status | "ALL") => void;
   setPriorityFilter: (priority?: Priority | "ALL") => void;
-  setDateFilter: (date?: Date) => void;
+  setDateRangeFilter: (range?: DateRange) => void;
+  setSortFilter: (sort?: SortOrder) => void; // ✅ Nova Ação
   clearFilters: () => void;
 }
 
@@ -36,9 +40,15 @@ export const useTaskStore = create<TaskStore>((set) => ({
       } 
     })),
 
-  setDateFilter: (date) => 
+  setDateRangeFilter: (range) => 
     set((state) => ({ 
-      filters: { ...state.filters, date } 
+      filters: { ...state.filters, dateRange: range } 
+    })),
+
+  // ✅ Nova lógica de ordenação
+  setSortFilter: (sort) =>
+    set((state) => ({
+      filters: { ...state.filters, sort }
     })),
 
   clearFilters: () => set({ filters: {} }),

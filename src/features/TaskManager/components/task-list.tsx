@@ -3,19 +3,23 @@
 import { useState } from "react";
 import { trpc } from "@/lib/trpc/client";
 import { Button } from "@/_shared/components/button";
+import { Input } from "@/_shared/components/input";
+import { Textarea } from "@/_shared/components/textarea";
 import { toast } from "sonner";
 import Link from "next/link";
-import { format } from "date-fns";
+import { format, startOfDay, endOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { 
   Trash2, 
   Calendar as CalendarIcon, 
   FilterX, 
-  MoreHorizontal 
+  MoreHorizontal,
+  Pencil,
+  ArrowDownWideNarrow, // Ícone Decrescente
+  ArrowUpNarrowWide    // Ícone Crescente
 } from "lucide-react";
 import { useTaskStore } from "../store/taskStore";
 
-// Importações de Componentes UI (Ajustados para _shared)
 import {
   Table,
   TableBody,
@@ -43,28 +47,44 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/_shared/components/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/_shared/components/dialog";
+import { Label } from "@/_shared/components/label";
 import { cn } from "@/_shared/util/utils";
 
 export function TaskList() {
   const utils = trpc.useUtils();
   
-  // Estados globais do Zustand (persistência de filtros)
   const { 
     filters, 
     setStatusFilter, 
     setPriorityFilter, 
-    setDateFilter, 
+    setDateRangeFilter, 
+    setSortFilter, // ✅ Importando a ação de sort
     clearFilters 
   } = useTaskStore();
 
-  // Busca de dados com filtros aplicados
+  const dateRange = filters.dateRange;
+  const [editingTask, setEditingTask] = useState<any | null>(null);
+
+  const queryFrom = dateRange?.from ? startOfDay(dateRange.from) : undefined;
+  const queryTo = dateRange?.to ? endOfDay(dateRange.to) : 
+                  dateRange?.from ? endOfDay(dateRange.from) : undefined;
+
+  // ✅ Passando 'sort' para a query
   const { data: tasks, isLoading } = trpc.tasks.getAll.useQuery({
     status: filters.status,
     priority: filters.priority,
-    from: filters.date, 
+    from: queryFrom,
+    to: queryTo,
+    sort: filters.sort, 
   });
 
-  // Mutação para deletar
   const deleteTask = trpc.tasks.delete.useMutation({
     onSuccess: () => {
       toast.success("Tarefa removida.");
@@ -73,7 +93,38 @@ export function TaskList() {
     onError: (err) => toast.error(`Erro ao deletar: ${err.message}`),
   });
 
-  // Mapas visuais para tradução e estilização
+  const updateTask = trpc.tasks.update.useMutation({
+    onSuccess: () => {
+      toast.success("Tarefa atualizada!");
+      setEditingTask(null);
+      utils.tasks.getAll.invalidate();
+    },
+    onError: (err) => toast.error(`Erro ao atualizar: ${err.message}`),
+  });
+
+  const handleSaveEdit = () => {
+    if (!editingTask) return;
+    updateTask.mutate({
+      id: editingTask.id,
+      title: editingTask.title,
+      description: editingTask.description,
+      status: editingTask.status,
+      priority: editingTask.priority,
+      dueDate: editingTask.dueDate,
+    });
+  };
+
+  // ✅ Função para alternar ordenação (Asc -> Desc -> Padrão)
+  const toggleSort = () => {
+    if (filters.sort === "asc") setSortFilter("desc");
+    else if (filters.sort === "desc") setSortFilter(undefined);
+    else setSortFilter("asc");
+  };
+
+  const clearAllFilters = () => {
+    clearFilters();
+  };
+
   const priorityMap = {
     LOW: { label: "Baixa", color: "bg-slate-100 text-slate-700 border-slate-200" },
     MEDIUM: { label: "Média", color: "bg-blue-50 text-blue-700 border-blue-200" },
@@ -81,29 +132,27 @@ export function TaskList() {
   };
 
   const statusMap = {
-    TODO: { label: "A Fazer", icon: "○", color: "text-slate-500" },
-    IN_PROGRESS: { label: "Em Progresso", icon: "◐", color: "text-blue-600" },
-    DONE: { label: "Concluído", icon: "●", color: "text-green-600" },
+    TODO: { label: "A Fazer", icon: "○", color: "text-slate-500 bg-slate-50 border-slate-200" },
+    IN_PROGRESS: { label: "Em Progresso", icon: "◐", color: "text-blue-700 bg-blue-50 border-blue-200" },
+    DONE: { label: "Concluído", icon: "●", color: "text-green-700 bg-green-50 border-green-200" },
   };
 
-  const hasActiveFilters = filters.status || filters.priority || filters.date;
+  const hasActiveFilters = filters.status || filters.priority || filters.dateRange || filters.sort;
 
   return (
     <div className="space-y-6">
-      {/* Barra de Ferramentas (Filtros) */}
+      {/* Toolbar (Filters) */}
       <div className="flex flex-col lg:flex-row gap-6 items-end justify-between bg-white p-5 rounded-xl border shadow-sm">
-        
-        {/* Área de Filtros com Labels */}
-        <div className="flex flex-wrap gap-4 items-end w-full lg:w-auto">
+        <div className="flex flex-1 gap-4 items-end w-full lg:w-auto flex-wrap">
           
-          {/* Filtro de Status */}
+          {/* Filtro Status */}
           <div className="flex flex-col gap-2">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</span>
             <Select 
               value={filters.status || "ALL"} 
               onValueChange={(v) => setStatusFilter(v === "ALL" ? undefined : v as any)}
             >
-              <SelectTrigger className="w-[150px] bg-white text-slate-900 border-slate-200 h-10">
+              <SelectTrigger className="w-[140px] bg-white text-slate-900 border-slate-200 h-10">
                 <SelectValue placeholder="Todos" />
               </SelectTrigger>
               <SelectContent>
@@ -115,14 +164,14 @@ export function TaskList() {
             </Select>
           </div>
 
-          {/* Filtro de Prioridade */}
+          {/* Filtro Prioridade */}
           <div className="flex flex-col gap-2">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Prioridade</span>
             <Select 
               value={filters.priority || "ALL"} 
               onValueChange={(v) => setPriorityFilter(v === "ALL" ? undefined : v as any)}
             >
-              <SelectTrigger className="w-[150px] bg-white text-slate-900 border-slate-200 h-10">
+              <SelectTrigger className="w-[140px] bg-white text-slate-900 border-slate-200 h-10">
                 <SelectValue placeholder="Todas" />
               </SelectTrigger>
               <SelectContent>
@@ -134,36 +183,71 @@ export function TaskList() {
             </Select>
           </div>
 
-          {/* Filtro de Data */}
+          {/* Filtro Período */}
           <div className="flex flex-col gap-2">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">A partir de</span>
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Período</span>
             <Popover>
               <PopoverTrigger asChild>
                 <Button
+                  id="date"
                   variant={"outline"}
                   className={cn(
-                    "w-[160px] justify-start text-left font-normal bg-white text-slate-900 border-slate-200 h-10",
-                    !filters.date && "text-muted-foreground"
+                    "w-[240px] justify-start text-left font-normal bg-white text-slate-900 border-slate-200 h-10",
+                    !dateRange && "text-muted-foreground"
                   )}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4 opacity-50" />
-                  {filters.date ? format(filters.date, "dd/MM/yyyy") : "Data..."}
+                  {dateRange?.from ? (
+                    dateRange.to ? (
+                      <>
+                        {format(dateRange.from, "dd/MM/yy")} -{" "}
+                        {format(dateRange.to, "dd/MM/yy")}
+                      </>
+                    ) : (
+                      format(dateRange.from, "dd/MM/yyyy")
+                    )
+                  ) : (
+                    <span>Filtrar por data...</span>
+                  )}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
+              <PopoverContent className="w-auto p-0 bg-white" align="start">
                 <Calendar
-                  mode="single"
-                  selected={filters.date}
-                  onSelect={setDateFilter}
                   initialFocus
+                  mode="range"
+                  defaultMonth={dateRange?.from}
+                  selected={dateRange}
+                  onSelect={setDateRangeFilter}
+                  numberOfMonths={2}
+                  className="bg-white border rounded-md shadow-md"
                 />
               </PopoverContent>
             </Popover>
           </div>
 
+          {/* ✅ Botão de Ordenar */}
+          <div className="flex flex-col gap-2">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Ordenar</span>
+            <Button 
+              variant="outline" 
+              onClick={toggleSort}
+              className={cn(
+                "w-[50px] h-10 border-slate-200 px-0 bg-white text-slate-900",
+                filters.sort && "bg-slate-100 border-slate-300 text-blue-600"
+              )}
+              title="Ordenar por Data de Vencimento"
+            >
+              {filters.sort === "asc" ? (
+                <ArrowUpNarrowWide className="h-5 w-5" />
+              ) : (
+                <ArrowDownWideNarrow className="h-5 w-5" />
+              )}
+            </Button>
+          </div>
+
           {/* Botão Limpar */}
           {hasActiveFilters && (
-            <Button variant="ghost" size="icon" onClick={clearFilters} title="Limpar filtros" className="h-10 w-10 text-slate-400 hover:text-red-600 hover:bg-red-50 mb-[1px]">
+            <Button variant="ghost" size="icon" onClick={clearAllFilters} title="Limpar filtros" className="h-10 w-10 text-slate-400 hover:text-red-600 hover:bg-red-50 mb-[1px]">
               <FilterX className="h-5 w-5" />
             </Button>
           )}
@@ -176,22 +260,23 @@ export function TaskList() {
         </Link>
       </div>
 
-      {/* Tabela de Dados */}
+      {/* Data Table */}
       <div className="rounded-xl border bg-white shadow-sm overflow-hidden">
         <Table>
           <TableHeader className="bg-slate-50/50">
-            <TableRow className="hover:bg-transparent">
-              <TableHead className="w-[40%] text-slate-900 font-semibold h-12">Tarefa</TableHead>
-              <TableHead className="text-slate-900 font-semibold">Status</TableHead>
-              <TableHead className="text-slate-900 font-semibold">Prioridade</TableHead>
-              <TableHead className="text-slate-900 font-semibold">Vencimento</TableHead>
-              <TableHead className="text-right text-slate-900 font-semibold">Ações</TableHead>
+            <TableRow className="hover:bg-transparent border-b border-slate-200">
+              <TableHead className="w-[20%] text-slate-900 font-bold h-12 text-left pl-8">Título</TableHead>
+              <TableHead className="w-[25%] text-slate-900 font-bold text-center">Descrição</TableHead>
+              <TableHead className="w-[15%] text-slate-900 font-bold text-center">Prioridade</TableHead>
+              <TableHead className="w-[15%] text-slate-900 font-bold text-center">Status</TableHead>
+              <TableHead className="w-[15%] text-slate-900 font-bold text-center">Data</TableHead>
+              <TableHead className="w-[10%] text-slate-900 font-bold text-center pr-6">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
+                <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
                   <div className="flex items-center justify-center gap-2">
                     <span className="h-2 w-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: "0s" }}/>
                     <span className="h-2 w-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: "0.1s" }}/>
@@ -201,7 +286,7 @@ export function TaskList() {
               </TableRow>
             ) : tasks?.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="h-40 text-center">
+                <TableCell colSpan={6} className="h-40 text-center">
                   <div className="flex flex-col items-center justify-center text-muted-foreground gap-2">
                     <FilterX className="h-8 w-8 opacity-20" />
                     <p>Nenhuma tarefa encontrada.</p>
@@ -210,62 +295,78 @@ export function TaskList() {
               </TableRow>
             ) : (
               tasks?.map((task) => (
-                <TableRow key={task.id} className="hover:bg-slate-50 group border-b border-slate-100 last:border-0">
-                  <TableCell className="py-4">
-                    <div className="flex flex-col gap-1">
-                      <span className="font-semibold text-slate-900">{task.title}</span>
-                      {task.description && (
-                        <span className="text-xs text-slate-500 truncate max-w-[300px] leading-relaxed">
-                          {task.description}
-                        </span>
+                <TableRow 
+                  key={task.id} 
+                  className="hover:bg-slate-50 group border-b border-slate-100 last:border-0 h-16 cursor-pointer"
+                  onClick={() => setEditingTask(task)}
+                >
+                  {/* TÍTULO */}
+                  <TableCell className="py-4 pl-8 text-left font-medium text-slate-900">
+                    {task.title}
+                  </TableCell>
+                  
+                  {/* DESCRIÇÃO */}
+                  <TableCell className="text-center">
+                    <div className="flex justify-center">
+                      <span className="text-sm text-slate-500 truncate max-w-[200px]" title={task.description || ""}>
+                        {task.description || "-"}
+                      </span>
+                    </div>
+                  </TableCell>
+                  
+                  {/* PRIORIDADE */}
+                  <TableCell className="text-center">
+                    <div className="flex justify-center">
+                      <span className={cn("px-3 py-1 rounded-full text-xs font-semibold border shadow-sm", priorityMap[task.priority].color)}>
+                        {priorityMap[task.priority].label}
+                      </span>
+                    </div>
+                  </TableCell>
+                  
+                  {/* STATUS */}
+                  <TableCell className="text-center">
+                    <div className="flex justify-center">
+                      <div className={cn("inline-flex items-center gap-2 text-xs font-medium px-3 py-1 rounded-full border shadow-sm", statusMap[task.status].color)}>
+                        <span>{statusMap[task.status].label}</span>
+                      </div>
+                    </div>
+                  </TableCell>
+                  
+                  {/* DATA */}
+                  <TableCell className="text-center">
+                    <div className="flex justify-center text-sm text-slate-600 font-medium">
+                      {task.dueDate ? (
+                        <span>{format(task.dueDate, "dd/MM/yyyy")}</span>
+                      ) : (
+                        <span className="text-slate-400 italic">--</span>
                       )}
                     </div>
                   </TableCell>
                   
-                  <TableCell>
-                    <div className={cn("inline-flex items-center gap-1.5 text-sm font-medium px-2 py-1 rounded-md bg-slate-50 border border-slate-100", statusMap[task.status].color)}>
-                      <span>{statusMap[task.status].icon}</span>
-                      <span>{statusMap[task.status].label}</span>
+                  {/* AÇÕES */}
+                  <TableCell className="text-center pr-6">
+                    <div className="flex justify-center" onClick={(e) => e.stopPropagation()}>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-slate-600">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => setEditingTask(task)}>
+                            <Pencil className="mr-2 h-4 w-4" />
+                            Editar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                            onClick={() => deleteTask.mutate({ id: task.id })}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Excluir
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
-                  </TableCell>
-                  
-                  <TableCell>
-                    <span className={cn("px-2.5 py-1 rounded-full text-xs font-semibold border shadow-sm", priorityMap[task.priority].color)}>
-                      {priorityMap[task.priority].label}
-                    </span>
-                  </TableCell>
-                  
-                  <TableCell>
-                    {task.dueDate ? (
-                      <div className="flex items-center gap-2 text-sm text-slate-600 font-medium">
-                        <CalendarIcon className="h-4 w-4 text-slate-400" />
-                        <span>{format(task.dueDate, "dd/MM/yyyy")}</span>
-                      </div>
-                    ) : (
-                      <span className="text-xs text-slate-400 italic pl-1">--</span>
-                    )}
-                  </TableCell>
-                  
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-slate-600">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-32">
-                        <DropdownMenuItem onClick={() => alert("Em breve: Editar")}>
-                          Editar
-                        </DropdownMenuItem>
-                        <DropdownMenuItem 
-                          className="text-red-600 focus:text-red-600 focus:bg-red-50"
-                          onClick={() => deleteTask.mutate({ id: task.id })}
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Excluir
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               ))
@@ -273,6 +374,119 @@ export function TaskList() {
           </TableBody>
         </Table>
       </div>
+
+      {/* MODAL DE EDIÇÃO (Cores ajustadas) */}
+      <Dialog open={!!editingTask} onOpenChange={(open) => !open && setEditingTask(null)}>
+        <DialogContent className="sm:max-w-[500px] bg-white text-slate-900">
+          <DialogHeader>
+            <DialogTitle className="text-slate-900">Editar Tarefa</DialogTitle>
+          </DialogHeader>
+          
+          {editingTask && (
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="title" className="text-slate-700">Título</Label>
+                <Input
+                  id="title"
+                  className="bg-white text-slate-900 border-slate-200"
+                  value={editingTask.title}
+                  onChange={(e) => setEditingTask({ ...editingTask, title: e.target.value })}
+                />
+              </div>
+              
+              <div className="grid gap-2">
+                <Label htmlFor="desc" className="text-slate-700">Descrição</Label>
+                <Textarea
+                  id="desc"
+                  className="resize-none min-h-[100px] bg-white text-slate-900 border-slate-200"
+                  value={editingTask.description || ""}
+                  onChange={(e) => setEditingTask({ ...editingTask, description: e.target.value })}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label className="text-slate-700">Status</Label>
+                  <Select 
+                    value={editingTask.status} 
+                    onValueChange={(v) => setEditingTask({ ...editingTask, status: v })}
+                  >
+                    <SelectTrigger className="bg-white text-slate-900 border-slate-200">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white">
+                      <SelectItem value="TODO" className="text-slate-700">A Fazer</SelectItem>
+                      <SelectItem value="IN_PROGRESS" className="text-blue-700">Em Progresso</SelectItem>
+                      <SelectItem value="DONE" className="text-green-700">Concluído</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label className="text-slate-700">Prioridade</Label>
+                  <Select 
+                    value={editingTask.priority} 
+                    onValueChange={(v) => setEditingTask({ ...editingTask, priority: v })}
+                  >
+                    <SelectTrigger className="bg-white text-slate-900 border-slate-200">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white">
+                      <SelectItem value="LOW" className="text-slate-700">Baixa</SelectItem>
+                      <SelectItem value="MEDIUM" className="text-slate-700">Média</SelectItem>
+                      <SelectItem value="HIGH" className="text-red-700">Alta</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid gap-2">
+                <Label className="text-slate-700">Vencimento</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant={"outline"}
+                      className={cn(
+                        "w-full justify-start text-left font-normal bg-white text-slate-900 border-slate-200",
+                        !editingTask.dueDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4 opacity-50" />
+                      {editingTask.dueDate ? (
+                        format(new Date(editingTask.dueDate), "PPP", { locale: ptBR })
+                      ) : (
+                        <span>Sem data</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0 bg-white" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={editingTask.dueDate ? new Date(editingTask.dueDate) : undefined}
+                      onSelect={(date) => setEditingTask({ ...editingTask, dueDate: date })}
+                      initialFocus
+                      className="bg-white border rounded-md shadow-md"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button 
+              variant="ghost" 
+              onClick={() => setEditingTask(null)} 
+              className="text-slate-500 hover:text-slate-800 hover:bg-slate-100"
+            >
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveEdit} disabled={updateTask.isPending} className="bg-slate-900 text-white hover:bg-slate-800">
+              {updateTask.isPending ? "Salvando..." : "Salvar Alterações"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
