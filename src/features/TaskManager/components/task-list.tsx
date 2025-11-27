@@ -15,8 +15,8 @@ import {
   FilterX, 
   MoreHorizontal,
   Pencil,
-  ArrowDownWideNarrow, // Ícone Decrescente
-  ArrowUpNarrowWide    // Ícone Crescente
+  ArrowDownWideNarrow,
+  ArrowUpNarrowWide
 } from "lucide-react";
 import { useTaskStore } from "../store/taskStore";
 
@@ -65,7 +65,7 @@ export function TaskList() {
     setStatusFilter, 
     setPriorityFilter, 
     setDateRangeFilter, 
-    setSortFilter, // ✅ Importando a ação de sort
+    setSortFilter, 
     clearFilters 
   } = useTaskStore();
 
@@ -76,7 +76,6 @@ export function TaskList() {
   const queryTo = dateRange?.to ? endOfDay(dateRange.to) : 
                   dateRange?.from ? endOfDay(dateRange.from) : undefined;
 
-  // ✅ Passando 'sort' para a query
   const { data: tasks, isLoading } = trpc.tasks.getAll.useQuery({
     status: filters.status,
     priority: filters.priority,
@@ -114,7 +113,6 @@ export function TaskList() {
     });
   };
 
-  // ✅ Função para alternar ordenação (Asc -> Desc -> Padrão)
   const toggleSort = () => {
     if (filters.sort === "asc") setSortFilter("desc");
     else if (filters.sort === "desc") setSortFilter(undefined);
@@ -145,7 +143,7 @@ export function TaskList() {
       <div className="flex flex-col lg:flex-row gap-6 items-end justify-between bg-white p-5 rounded-xl border shadow-sm">
         <div className="flex flex-1 gap-4 items-end w-full lg:w-auto flex-wrap">
           
-          {/* Filtro Status */}
+          {/* Status Filter */}
           <div className="flex flex-col gap-2">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</span>
             <Select 
@@ -164,7 +162,7 @@ export function TaskList() {
             </Select>
           </div>
 
-          {/* Filtro Prioridade */}
+          {/* Priority Filter */}
           <div className="flex flex-col gap-2">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Prioridade</span>
             <Select 
@@ -183,7 +181,7 @@ export function TaskList() {
             </Select>
           </div>
 
-          {/* Filtro Período */}
+          {/* Date Filter */}
           <div className="flex flex-col gap-2">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Período</span>
             <Popover>
@@ -225,7 +223,7 @@ export function TaskList() {
             </Popover>
           </div>
 
-          {/* ✅ Botão de Ordenar */}
+          {/* Botão Ordenar */}
           <div className="flex flex-col gap-2">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Ordenar</span>
             <Button 
@@ -297,15 +295,21 @@ export function TaskList() {
               tasks?.map((task) => (
                 <TableRow 
                   key={task.id} 
-                  className="hover:bg-slate-50 group border-b border-slate-100 last:border-0 h-16 cursor-pointer"
-                  onClick={() => setEditingTask(task)}
+                  className="hover:bg-slate-50 group border-b border-slate-100 last:border-0 h-16"
+                  // MUDANÇA CRÍTICA: Removido o onClick global da Row para evitar conflito com Link
                 >
-                  {/* TÍTULO */}
                   <TableCell className="py-4 pl-8 text-left font-medium text-slate-900">
-                    {task.title}
+                    <div className="flex flex-col gap-1">
+                      {/* Link de Navegação - Só aqui navega */}
+                      <Link 
+                        href={`/tasks/${task.id}`} 
+                        className="font-semibold text-slate-900 hover:text-blue-600 hover:underline transition-colors cursor-pointer"
+                      >
+                        {task.title}
+                      </Link>
+                    </div>
                   </TableCell>
                   
-                  {/* DESCRIÇÃO */}
                   <TableCell className="text-center">
                     <div className="flex justify-center">
                       <span className="text-sm text-slate-500 truncate max-w-[200px]" title={task.description || ""}>
@@ -314,7 +318,6 @@ export function TaskList() {
                     </div>
                   </TableCell>
                   
-                  {/* PRIORIDADE */}
                   <TableCell className="text-center">
                     <div className="flex justify-center">
                       <span className={cn("px-3 py-1 rounded-full text-xs font-semibold border shadow-sm", priorityMap[task.priority].color)}>
@@ -323,7 +326,6 @@ export function TaskList() {
                     </div>
                   </TableCell>
                   
-                  {/* STATUS */}
                   <TableCell className="text-center">
                     <div className="flex justify-center">
                       <div className={cn("inline-flex items-center gap-2 text-xs font-medium px-3 py-1 rounded-full border shadow-sm", statusMap[task.status].color)}>
@@ -332,7 +334,6 @@ export function TaskList() {
                     </div>
                   </TableCell>
                   
-                  {/* DATA */}
                   <TableCell className="text-center">
                     <div className="flex justify-center text-sm text-slate-600 font-medium">
                       {task.dueDate ? (
@@ -343,25 +344,25 @@ export function TaskList() {
                     </div>
                   </TableCell>
                   
-                  {/* AÇÕES */}
                   <TableCell className="text-center pr-6">
-                    <div className="flex justify-center" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex justify-center">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-slate-600">
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
+                        <DropdownMenuContent align="end" className="w-32">
+                          {/* MUDANÇA CRÍTICA: Apenas aqui abre o modal de edição */}
                           <DropdownMenuItem onClick={() => setEditingTask(task)}>
-                            <Pencil className="mr-2 h-4 w-4" />
+                            <Pencil className="mr-2 h-3.5 w-3.5" />
                             Editar
                           </DropdownMenuItem>
                           <DropdownMenuItem 
                             className="text-red-600 focus:text-red-600 focus:bg-red-50"
                             onClick={() => deleteTask.mutate({ id: task.id })}
                           >
-                            <Trash2 className="mr-2 h-4 w-4" />
+                            <Trash2 className="mr-2 h-3.5 w-3.5" />
                             Excluir
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -375,7 +376,7 @@ export function TaskList() {
         </Table>
       </div>
 
-      {/* MODAL DE EDIÇÃO (Cores ajustadas) */}
+      {/* MODAL DE EDIÇÃO */}
       <Dialog open={!!editingTask} onOpenChange={(open) => !open && setEditingTask(null)}>
         <DialogContent className="sm:max-w-[500px] bg-white text-slate-900">
           <DialogHeader>
@@ -474,11 +475,7 @@ export function TaskList() {
           )}
 
           <DialogFooter>
-            <Button 
-              variant="ghost" 
-              onClick={() => setEditingTask(null)} 
-              className="text-slate-500 hover:text-slate-800 hover:bg-slate-100"
-            >
+            <Button variant="outline" onClick={() => setEditingTask(null)} className="text-slate-700">
               Cancelar
             </Button>
             <Button onClick={handleSaveEdit} disabled={updateTask.isPending} className="bg-slate-900 text-white hover:bg-slate-800">

@@ -2,26 +2,26 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import { db } from "@/lib/db";
-// Certifique-se que este caminho aponta para o seu schema do Drizzle
-import { users } from "../../database/schema"; 
+// Certifique-se que 'sessions' está sendo importado do seu schema
+import { users, sessions } from "../../database/schema"; 
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
-import authConfig from "./auth.config"; // <--- Importa a config leve
+import authConfig from "./auth.config";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: DrizzleAdapter(db),
+  
+  // Estratégia JWT para performance e compatibilidade com Middleware
   session: { strategy: "jwt" },
+  
   secret: process.env.AUTH_SECRET,
   
-  // Espalha a configuração leve (Callbacks, Pages, etc)
   ...authConfig,
 
   providers: [
-    // Adiciona novamente os providers leves (Google/Discord) para garantir que estejam registrados
     ...authConfig.providers,
     
-    // Adiciona o provider de Credenciais (Que só funciona no ambiente Node.js)
     Credentials({
       name: "Credentials",
       credentials: {
@@ -29,7 +29,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         password: { label: "Password", type: "password" },
       },
       authorize: async (credentials) => {
-        // 1. Validação dos tipos de entrada
         const parsedCredentials = z
           .object({ email: z.string().email(), password: z.string().min(6) })
           .safeParse(credentials);
@@ -38,7 +37,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         const { email, password } = parsedCredentials.data;
 
-        // 2. Busca no banco
         const [user] = await db
           .select()
           .from(users)
@@ -46,7 +44,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         if (!user || !user.password) return null;
 
-        // 3. Compara a senha
         const passwordsMatch = await bcrypt.compare(password, user.password);
 
         if (passwordsMatch) return user;
@@ -54,4 +51,42 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       },
     }),
   ],
+
+  callbacks: {
+    // 1. Callback JWT: Executa no login (Google, Discord ou Senha)
+    async jwt({ token, user, trigger }) {
+      // Se for o momento do LOGIN ('signIn')
+      if (trigger === "signIn" && user?.id) {
+        const sessionToken = crypto.randomUUID();
+        const expires = new Date();
+        expires.setDate(expires.getDate() + 30); // 30 dias
+
+        // Persistir a sessão no banco (Funciona para TODOS os providers)
+        await db.insert(sessions).values({
+          userId: user.id,
+          sessionToken: sessionToken,
+          expires: expires,
+        });
+
+        // AQUI ESTÁ O SEGREDO:
+        // Salvamos o ID da sessão do banco DENTRO do token JWT.
+        // Assim, o middleware consegue ler o cookie, pegar esse ID e conferir no banco.
+        token.sessionToken = sessionToken;
+        token.sub = user.id;
+      }
+      return token;
+    },
+
+    // 2. Callback Session: Passa dados para o frontend
+    async session({ session, token }) {
+      if (token.sub && session.user) {
+        session.user.id = token.sub;
+        // @ts-ignore - Repassa o token da sessão se precisar usar no client
+        session.sessionToken = token.sessionToken;
+      }
+      return session;
+    },
+  },
+
+  // Removemos o 'events' pois agora o 'jwt' cuida de tudo
 });
