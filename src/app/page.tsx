@@ -1,14 +1,16 @@
 import Link from "next/link";
-import Image from "next/image"; // Import Image component
+import Image from "next/image"; 
 import { Button } from "@/_shared/components/button";
-import { Metadata } from "next"; // Import Metadata type
+import { Metadata } from "next"; 
 import { 
   CheckCircle2, 
   KanbanSquare, 
   BarChart3, 
   ArrowRight, 
   Layout, 
-  ShieldCheck 
+  ShieldCheck,
+  TrendingUp,
+  HelpCircle
 } from "lucide-react";
 
 // --- SEO & METADATA ---
@@ -18,11 +20,11 @@ export const metadata: Metadata = {
   openGraph: {
     title: "TaskMaster - Produtividade Simples",
     description: "Gerencie tarefas, visualize progresso e alcance seus objetivos com o TaskMaster.",
-    url: "https://taskmaster-demo.vercel.app", // URL de produção (exemplo)
+    url: "https://taskmaster-demo.vercel.app",
     siteName: "TaskMaster",
     images: [
       {
-        url: "https://nextjs.org/og.png", // Placeholder para imagem de compartilhamento
+        url: "https://nextjs.org/og.png",
         width: 1200,
         height: 630,
         alt: "TaskMaster Dashboard Preview",
@@ -35,7 +37,6 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "TaskMaster",
     description: "Organize sua vida com Kanban e Dashboards.",
-    // images: ["..."],
   },
 };
 
@@ -46,8 +47,6 @@ export default function LandingPage() {
       <header className="sticky top-0 z-50 w-full border-b border-slate-100 bg-white/80 backdrop-blur-md">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            {/* LOGO COM COMPONENTE IMAGE (Otimizado) */}
-            {/* Usando o logo do Vercel como placeholder, substitua pelo seu arquivo em /public/logo.svg */}
             <div className="relative h-8 w-8">
                  <div className="h-8 w-8 bg-slate-900 rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-sm">
                   T
@@ -57,10 +56,19 @@ export default function LandingPage() {
           </div>
           
           <nav className="flex items-center gap-2 md:gap-4">
-            {/* ✅ BOTÃO FAQ ADICIONADO */}
-            <Link href="/faq" className="hidden md:block">
-              <Button variant="ghost" className="text-slate-600 hover:text-slate-900">
-                Dúvidas Frequentes
+            {/* ✅ Link para FAQ */}
+            <Link href="/faq" className="hidden md:flex items-center">
+              <Button variant="ghost" className="text-slate-600 hover:text-slate-900 gap-2">
+                <HelpCircle className="h-4 w-4" />
+                Dúvidas
+              </Button>
+            </Link>
+
+             {/* ✅ NOVO: Link para Stats (ISR) */}
+             <Link href="/stats" className="hidden md:flex items-center">
+              <Button variant="ghost" className="text-slate-600 hover:text-slate-900 gap-2">
+                <TrendingUp className="h-4 w-4" />
+                Números
               </Button>
             </Link>
 
@@ -105,10 +113,12 @@ export default function LandingPage() {
                   Criar Conta Grátis <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </Link>
-              {/* Link secundário para FAQ */}
-              <Link href="/faq">
-                <Button variant="outline" size="lg" className="h-12 px-8 text-base border-slate-200">
-                  Saiba Mais
+              
+              {/* ✅ Botão de Estatísticas em Destaque */}
+              <Link href="/stats">
+                <Button variant="outline" size="lg" className="h-12 px-8 text-base border-slate-200 gap-2">
+                  <TrendingUp className="h-4 w-4" />
+                  Ver Estatísticas
                 </Button>
               </Link>
             </div>
@@ -162,7 +172,6 @@ export default function LandingPage() {
               </ul>
             </div>
             <div className="relative">
-              {/* Placeholder visual */}
               <div className="w-full md:w-[500px] h-[300px] bg-white rounded-xl shadow-2xl border border-slate-200 p-6 flex items-center justify-center">
                 <div className="text-center">
                   <div className="inline-flex p-4 bg-blue-50 rounded-full mb-4">
@@ -202,8 +211,8 @@ export default function LandingPage() {
             <span className="font-semibold text-slate-700">TaskMaster</span>
           </div>
           <div className="flex gap-6 text-sm text-slate-500">
-             {/* Link para FAQ no rodapé também */}
              <Link href="/faq" className="hover:text-slate-900 transition-colors">FAQ</Link>
+             <Link href="/stats" className="hover:text-slate-900 transition-colors">Estatísticas</Link>
              <span>© {new Date().getFullYear()} TaskMaster.</span>
           </div>
         </div>

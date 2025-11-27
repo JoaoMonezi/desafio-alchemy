@@ -1,5 +1,5 @@
-import { createTRPCRouter, protectedProcedure } from "@/lib/trpc/init";
-import { tasks } from "../../../database/schema";
+import { createTRPCRouter, protectedProcedure, publicProcedure } from "@/lib/trpc/init";
+import { tasks, users } from "../../../database/schema";
 import { createTaskSchema, updateTaskSchema, filterTaskSchema } from "./schema";
 import { eq, and, desc, asc, gte, lte, sql } from "drizzle-orm"; 
 import { z } from "zod";
@@ -10,13 +10,12 @@ import { ratelimit } from "@/Config/ratelimit"; // <--- Importante: Configuraç�
 import { calculateDashboardMetrics } from "./utils"; // <--- Importando a lógica extraída
 
 export const tasksRouter = createTRPCRouter({
-  // 1. CREATE (Com Rate Limit)
+  // 1. CREATE
   create: protectedProcedure
     .input(createTaskSchema)
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session.user.id;
 
-      // 🛡️ Rate Limiting
       const { success } = await ratelimit.limit(`create_task:${userId}`);
       if (!success) {
         throw new TRPCError({
@@ -31,7 +30,7 @@ export const tasksRouter = createTRPCRouter({
       });
     }),
 
-  // 2. GET ALL (Com Filtros e Ordenação)
+  // 2. GET ALL
   getAll: protectedProcedure
     .input(filterTaskSchema.optional())
     .query(async ({ ctx, input }) => {
@@ -87,18 +86,38 @@ export const tasksRouter = createTRPCRouter({
         .where(and(eq(tasks.id, input.id), eq(tasks.userId, ctx.session.user.id)));
     }),
 
-  // 6. DASHBOARD STATS (✅ Refatorado e Limpo)
+  // 6. DASHBOARD STATS
   getDashboardStats: protectedProcedure.query(async ({ ctx }) => {
     const userId = ctx.session.user.id;
-
-    // 1. Busca os dados brutos no banco (apenas do usuário)
     const allTasks = await ctx.db
       .select()
       .from(tasks)
       .where(eq(tasks.userId, userId));
 
-    // 2. Passa para a função pura calcular as métricas
-    // Isso mantém o Router leve e a lógica testável via Jest
     return calculateDashboardMetrics(allTasks);
+  }),
+
+  // ✅ 7. PUBLIC STATS (Corrigido: users plural)
+  getPublicStats: publicProcedure.query(async ({ ctx }) => {
+    // Usamos sql.raw ou sql simples para evitar problemas de tipagem no count
+    const [userRes] = await ctx.db
+      .select({ count: sql`count(*)` })
+      .from(users); // <--- CORRIGIDO: 'users' (plural)
+    
+    const [taskRes] = await ctx.db
+      .select({ count: sql`count(*)` })
+      .from(tasks);
+    
+    const [completedRes] = await ctx.db
+      .select({ count: sql`count(*)` })
+      .from(tasks)
+      .where(eq(tasks.status, "DONE"));
+
+    return {
+      // O Postgres retorna count como string (ex: "10"), convertemos aqui
+      users: Number(userRes?.count ?? 0),
+      tasks: Number(taskRes?.count ?? 0),
+      completed: Number(completedRes?.count ?? 0),
+    };
   }),
 });
