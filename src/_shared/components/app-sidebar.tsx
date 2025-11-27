@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
+import { trpc } from "@/lib/trpc/client"; // <--- Importamos o tRPC
 import { cn } from "@/_shared/util/utils"; 
 import { Button } from "@/_shared/components/button";
 import {
@@ -13,11 +14,10 @@ import {
   Settings,
   LogOut,
   User,
-  PanelLeftClose, // Ícone para fechar
-  PanelLeftOpen,  // Ícone para abrir
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 
-// Props para controlar a sidebar de fora
 interface AppSidebarProps {
   isCollapsed: boolean;
   toggleSidebar: () => void;
@@ -50,18 +50,28 @@ export function AppSidebar({ isCollapsed, toggleSidebar }: AppSidebarProps) {
   const pathname = usePathname();
   const { data: session } = useSession();
 
+  // ✅ A MÁGICA: Buscamos o perfil atualizado do banco
+  // Usamos a sessão como dado inicial para não ficar "piscando"
+  const { data: userProfile } = trpc.profile.getProfile.useQuery(undefined, {
+    enabled: !!session, // Só busca se estiver logado
+    initialData: session?.user as any,
+  });
+
+  // Definimos quem vamos mostrar: O dado do banco (novo) ou da sessão (velho/backup)
+  const displayName = userProfile?.name || session?.user?.name || "Usuário";
+  const displayEmail = userProfile?.email || session?.user?.email || "";
+  const displayImage = userProfile?.image || session?.user?.image;
+
   return (
     <aside
       className={cn(
         "min-h-screen bg-[#F7F7F5] border-r border-slate-200 flex flex-col justify-between fixed left-0 top-0 bottom-0 z-50 transition-all duration-300 ease-in-out",
-        // Se estiver colapsada, usa largura 20 (80px), se não, 64 (256px)
         isCollapsed ? "w-20" : "w-64"
       )}
     >
       {/* Cabeçalho da Sidebar */}
       <div className="p-4 flex flex-col h-full">
         
-        {/* Logo e Botão de Toggle */}
         <div className={cn("flex items-center mb-8 mt-2", isCollapsed ? "justify-center" : "justify-between px-2")}>
           {!isCollapsed && (
             <div className="flex items-center gap-2">
@@ -72,7 +82,6 @@ export function AppSidebar({ isCollapsed, toggleSidebar }: AppSidebarProps) {
             </div>
           )}
           
-          {/* Botão para Esconder/Mostrar */}
           <Button variant="ghost" size="icon" onClick={toggleSidebar} className="h-8 w-8 text-slate-400 hover:text-slate-600">
             {isCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
           </Button>
@@ -82,7 +91,6 @@ export function AppSidebar({ isCollapsed, toggleSidebar }: AppSidebarProps) {
         <div className="space-y-6 flex-1">
           {sidebarItems.map((group, index) => (
             <div key={index}>
-              {/* Título do Grupo (Esconde se colapsado) */}
               {!isCollapsed && (
                 <h4 className="px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 fade-in">
                   {group.title}
@@ -102,9 +110,9 @@ export function AppSidebar({ isCollapsed, toggleSidebar }: AppSidebarProps) {
                           isActive
                             ? "bg-slate-200/60 text-slate-900"
                             : "text-slate-500 hover:bg-slate-100 hover:text-slate-900",
-                          isCollapsed && "justify-center px-0" // Centraliza ícone se colapsado
+                          isCollapsed && "justify-center px-0"
                         )}
-                        title={isCollapsed ? item.label : undefined} // Tooltip nativo
+                        title={isCollapsed ? item.label : undefined}
                       >
                         <Icon className="h-5 w-5" />
                         {!isCollapsed && <span>{item.label}</span>}
@@ -117,26 +125,26 @@ export function AppSidebar({ isCollapsed, toggleSidebar }: AppSidebarProps) {
           ))}
         </div>
 
-        {/* Rodapé da Sidebar (Perfil) */}
+        {/* Rodapé da Sidebar (Perfil Atualizado) */}
         <div className={cn("pt-4 border-t border-slate-200", isCollapsed && "flex flex-col items-center")}>
           {!isCollapsed ? (
-            // Versão Expandida
             <>
               <div className="flex items-center gap-3 px-2 py-2 mb-2">
-                <div className="h-8 w-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-600">
-                  {session?.user?.image ? (
+                <div className="h-8 w-8 min-w-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 overflow-hidden border border-slate-300">
+                  {/* Verifica se tem imagem e mostra */}
+                  {displayImage ? (
                      // eslint-disable-next-line @next/next/no-img-element
-                    <img src={session.user.image} alt="Avatar" className="h-8 w-8 rounded-full" />
+                    <img src={displayImage} alt="Avatar" className="h-full w-full object-cover" />
                   ) : (
                     <User className="h-4 w-4" />
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-slate-900 truncate">
-                    {session?.user?.name || "Usuário"}
+                    {displayName}
                   </p>
                   <p className="text-xs text-slate-500 truncate">
-                    {session?.user?.email}
+                    {displayEmail}
                   </p>
                 </div>
               </div>
@@ -152,7 +160,6 @@ export function AppSidebar({ isCollapsed, toggleSidebar }: AppSidebarProps) {
               </Button>
             </>
           ) : (
-            // Versão Colapsada (Só ícone de sair)
             <Button 
               variant="ghost" 
               size="icon" 

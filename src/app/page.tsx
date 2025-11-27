@@ -1,5 +1,7 @@
 import Link from "next/link";
+import Image from "next/image"; // Import Image component
 import { Button } from "@/_shared/components/button";
+import { Metadata } from "next"; // Import Metadata type
 import { 
   CheckCircle2, 
   KanbanSquare, 
@@ -9,6 +11,34 @@ import {
   ShieldCheck 
 } from "lucide-react";
 
+// --- SEO & METADATA ---
+export const metadata: Metadata = {
+  title: "TaskMaster - Organize sua vida sem complicações",
+  description: "O gerenciador de tarefas definitivo. Kanban, Dashboard e produtividade em um só lugar.",
+  openGraph: {
+    title: "TaskMaster - Produtividade Simples",
+    description: "Gerencie tarefas, visualize progresso e alcance seus objetivos com o TaskMaster.",
+    url: "https://taskmaster-demo.vercel.app", // URL de produção (exemplo)
+    siteName: "TaskMaster",
+    images: [
+      {
+        url: "https://nextjs.org/og.png", // Placeholder para imagem de compartilhamento
+        width: 1200,
+        height: 630,
+        alt: "TaskMaster Dashboard Preview",
+      },
+    ],
+    locale: "pt_BR",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "TaskMaster",
+    description: "Organize sua vida com Kanban e Dashboards.",
+    // images: ["..."],
+  },
+};
+
 export default function LandingPage() {
   return (
     <div className="flex flex-col min-h-screen bg-white">
@@ -16,20 +46,31 @@ export default function LandingPage() {
       <header className="sticky top-0 z-50 w-full border-b border-slate-100 bg-white/80 backdrop-blur-md">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="h-8 w-8 bg-slate-900 rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-sm">
-              T
+            {/* LOGO COM COMPONENTE IMAGE (Otimizado) */}
+            {/* Usando o logo do Vercel como placeholder, substitua pelo seu arquivo em /public/logo.svg */}
+            <div className="relative h-8 w-8">
+                 <div className="h-8 w-8 bg-slate-900 rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-sm">
+                  T
+                </div>
             </div>
             <span className="font-bold text-xl tracking-tight text-slate-900">TaskMaster</span>
           </div>
           
-          <nav className="flex gap-4">
+          <nav className="flex items-center gap-2 md:gap-4">
+            {/* ✅ BOTÃO FAQ ADICIONADO */}
+            <Link href="/faq" className="hidden md:block">
+              <Button variant="ghost" className="text-slate-600 hover:text-slate-900">
+                Dúvidas Frequentes
+              </Button>
+            </Link>
+
             <Link href="/auth/login">
               <Button variant="ghost" className="text-slate-600 hover:text-slate-900">
                 Entrar
               </Button>
             </Link>
             <Link href="/auth/register">
-              <Button className="bg-slate-900 hover:bg-slate-800 text-white px-6">
+              <Button className="bg-slate-900 hover:bg-slate-800 text-white px-4 md:px-6">
                 Começar Grátis
               </Button>
             </Link>
@@ -64,9 +105,10 @@ export default function LandingPage() {
                   Criar Conta Grátis <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </Link>
-              <Link href="#features">
+              {/* Link secundário para FAQ */}
+              <Link href="/faq">
                 <Button variant="outline" size="lg" className="h-12 px-8 text-base border-slate-200">
-                  Ver Funcionalidades
+                  Saiba Mais
                 </Button>
               </Link>
             </div>
@@ -120,7 +162,7 @@ export default function LandingPage() {
               </ul>
             </div>
             <div className="relative">
-              {/* Placeholder visual de um gráfico ou print do app */}
+              {/* Placeholder visual */}
               <div className="w-full md:w-[500px] h-[300px] bg-white rounded-xl shadow-2xl border border-slate-200 p-6 flex items-center justify-center">
                 <div className="text-center">
                   <div className="inline-flex p-4 bg-blue-50 rounded-full mb-4">
@@ -159,16 +201,17 @@ export default function LandingPage() {
             </div>
             <span className="font-semibold text-slate-700">TaskMaster</span>
           </div>
-          <p className="text-slate-500 text-sm">
-            © {new Date().getFullYear()} TaskMaster. Todos os direitos reservados.
-          </p>
+          <div className="flex gap-6 text-sm text-slate-500">
+             {/* Link para FAQ no rodapé também */}
+             <Link href="/faq" className="hover:text-slate-900 transition-colors">FAQ</Link>
+             <span>© {new Date().getFullYear()} TaskMaster.</span>
+          </div>
         </div>
       </footer>
     </div>
   );
 }
 
-// Componentes Auxiliares para limpar o código principal
 function FeatureCard({ icon: Icon, title, description }: any) {
   return (
     <div className="p-6 rounded-2xl border border-slate-100 bg-white hover:shadow-lg hover:border-slate-200 transition-all group">

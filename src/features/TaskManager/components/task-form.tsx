@@ -65,9 +65,7 @@ export function TaskForm({ onSuccess }: TaskFormProps) {
       
       if (onSuccess) {
         onSuccess();
-      } else {
-        router.push("/tasks");
-      }
+      } 
     },
     onError: (error) => {
       toast.error(`Erro ao criar: ${error.message}`);

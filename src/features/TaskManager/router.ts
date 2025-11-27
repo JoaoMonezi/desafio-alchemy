@@ -4,18 +4,35 @@ import { createTaskSchema, updateTaskSchema, filterTaskSchema } from "./schema";
 import { eq, and, desc, asc, gte, lte, sql } from "drizzle-orm"; 
 import { z } from "zod";
 
+import { TRPCError } from "@trpc/server";
+import { ratelimit } from "@/Config/ratelimit"; // <--- Importante: Configuração do Redis
+
 export const tasksRouter = createTRPCRouter({
-  // 1. CREATE
+  // 1. CREATE (Protegido com Rate Limit)
   create: protectedProcedure
     .input(createTaskSchema)
     .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id;
+
+      // 🛡️ RATE LIMITING
+      // Verifica se o utilizador já excedeu o limite (ex: 3 tarefas/minuto)
+      const { success } = await ratelimit.limit(`create_task:${userId}`);
+
+      if (!success) {
+        throw new TRPCError({
+          code: "TOO_MANY_REQUESTS",
+          message: "Calma lá! Você está a criar tarefas muito rápido. Aguarde um minuto.",
+        });
+      }
+
+      // Se passou, insere no banco
       await ctx.db.insert(tasks).values({
         ...input,
-        userId: ctx.session.user.id,
+        userId: userId,
       });
     }),
 
-  // 2. GET ALL (List with Filters & Sort)
+  // 2. GET ALL (Lista com Filtros e Ordenação)
   getAll: protectedProcedure
     .input(filterTaskSchema.optional())
     .query(async ({ ctx, input }) => {
@@ -23,10 +40,12 @@ export const tasksRouter = createTRPCRouter({
 
       if (input?.status) filters.push(eq(tasks.status, input.status));
       if (input?.priority) filters.push(eq(tasks.priority, input.priority));
+      
+      // Filtros de Data (Intervalo)
       if (input?.from) filters.push(gte(tasks.dueDate, input.from));
       if (input?.to) filters.push(lte(tasks.dueDate, input.to));
 
-      // Sort Logic
+      // Lógica de Ordenação
       const orderBy = input?.sort === "asc" 
         ? asc(tasks.dueDate) 
         : input?.sort === "desc" 
@@ -40,7 +59,7 @@ export const tasksRouter = createTRPCRouter({
         .orderBy(orderBy);
     }),
 
-  // 3. ✅ GET BY ID (New!)
+  // 3. GET BY ID
   getById: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
@@ -72,7 +91,7 @@ export const tasksRouter = createTRPCRouter({
         .where(and(eq(tasks.id, input.id), eq(tasks.userId, ctx.session.user.id)));
     }),
 
-  // 6. DASHBOARD STATS (From previous step)
+  // 6. DASHBOARD STATS
   getDashboardStats: protectedProcedure.query(async ({ ctx }) => {
     const userId = ctx.session.user.id;
     const now = new Date();
