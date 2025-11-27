@@ -3,7 +3,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { createTaskSchema } from "../schema"; // Caminho corrigido: ../schema
+import { createTaskSchema } from "../../../../server/api/routers/task/schema"; // Caminho corrigido: ../schema
 import { trpc } from "@/lib/trpc/client";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";

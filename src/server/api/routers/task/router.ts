@@ -1,5 +1,5 @@
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "@/lib/trpc/init";
-import { tasks, users } from "../../../database/schema";
+import { tasks, users } from "../../../../../database/schema";
 import { createTaskSchema, updateTaskSchema, filterTaskSchema } from "./schema";
 import { eq, and, desc, asc, gte, lte, sql } from "drizzle-orm"; 
 import { z } from "zod";
@@ -7,7 +7,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { ratelimit } from "@/Config/ratelimit"; // <--- Importante: Configuração do Redis
 
-import { calculateDashboardMetrics } from "./utils"; // <--- Importando a lógica extraída
+import { calculateDashboardMetrics } from "../dashboard/utils"; // <--- Importando a lógica extraída
 
 export const tasksRouter = createTRPCRouter({
   // 1. CREATE
@@ -86,38 +86,5 @@ export const tasksRouter = createTRPCRouter({
         .where(and(eq(tasks.id, input.id), eq(tasks.userId, ctx.session.user.id)));
     }),
 
-  // 6. DASHBOARD STATS
-  getDashboardStats: protectedProcedure.query(async ({ ctx }) => {
-    const userId = ctx.session.user.id;
-    const allTasks = await ctx.db
-      .select()
-      .from(tasks)
-      .where(eq(tasks.userId, userId));
-
-    return calculateDashboardMetrics(allTasks);
-  }),
-
-  // ✅ 7. PUBLIC STATS (Corrigido: users plural)
-  getPublicStats: publicProcedure.query(async ({ ctx }) => {
-    // Usamos sql.raw ou sql simples para evitar problemas de tipagem no count
-    const [userRes] = await ctx.db
-      .select({ count: sql`count(*)` })
-      .from(users); // <--- CORRIGIDO: 'users' (plural)
-    
-    const [taskRes] = await ctx.db
-      .select({ count: sql`count(*)` })
-      .from(tasks);
-    
-    const [completedRes] = await ctx.db
-      .select({ count: sql`count(*)` })
-      .from(tasks)
-      .where(eq(tasks.status, "DONE"));
-
-    return {
-      // O Postgres retorna count como string (ex: "10"), convertemos aqui
-      users: Number(userRes?.count ?? 0),
-      tasks: Number(taskRes?.count ?? 0),
-      completed: Number(completedRes?.count ?? 0),
-    };
-  }),
+ 
 });

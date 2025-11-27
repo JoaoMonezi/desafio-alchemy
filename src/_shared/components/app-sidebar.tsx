@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
-import { trpc } from "@/lib/trpc/client"; // <--- Importamos o tRPC
+import { trpc } from "@/lib/trpc/client";
 import { cn } from "@/_shared/util/utils"; 
 import { Button } from "@/_shared/components/button";
+// 👇 1. Importamos a Store Global que criamos na raiz do app
+import { useAppStore } from "@/app/store"; 
 import {
   LayoutDashboard,
   PlusCircle,
@@ -18,10 +20,7 @@ import {
   PanelLeftOpen,
 } from "lucide-react";
 
-interface AppSidebarProps {
-  isCollapsed: boolean;
-  toggleSidebar: () => void;
-}
+// 👇 2. Removemos a interface de Props (não é mais necessária)
 
 const sidebarItems = [
   {
@@ -46,18 +45,18 @@ const sidebarItems = [
   },
 ];
 
-export function AppSidebar({ isCollapsed, toggleSidebar }: AppSidebarProps) {
+export function AppSidebar() {
   const pathname = usePathname();
   const { data: session } = useSession();
+  
+  // 👇 3. Usamos o Hook Global para controlar o estado
+  const { isSidebarCollapsed, toggleSidebar } = useAppStore();
 
-  // ✅ A MÁGICA: Buscamos o perfil atualizado do banco
-  // Usamos a sessão como dado inicial para não ficar "piscando"
   const { data: userProfile } = trpc.profile.getProfile.useQuery(undefined, {
-    enabled: !!session, // Só busca se estiver logado
+    enabled: !!session,
     initialData: session?.user as any,
   });
 
-  // Definimos quem vamos mostrar: O dado do banco (novo) ou da sessão (velho/backup)
   const displayName = userProfile?.name || session?.user?.name || "Usuário";
   const displayEmail = userProfile?.email || session?.user?.email || "";
   const displayImage = userProfile?.image || session?.user?.image;
@@ -66,14 +65,13 @@ export function AppSidebar({ isCollapsed, toggleSidebar }: AppSidebarProps) {
     <aside
       className={cn(
         "min-h-screen bg-[#F7F7F5] border-r border-slate-200 flex flex-col justify-between fixed left-0 top-0 bottom-0 z-50 transition-all duration-300 ease-in-out",
-        isCollapsed ? "w-20" : "w-64"
+        // 👇 4. Usamos a variável da store aqui
+        isSidebarCollapsed ? "w-20" : "w-64"
       )}
     >
-      {/* Cabeçalho da Sidebar */}
       <div className="p-4 flex flex-col h-full">
-        
-        <div className={cn("flex items-center mb-8 mt-2", isCollapsed ? "justify-center" : "justify-between px-2")}>
-          {!isCollapsed && (
+        <div className={cn("flex items-center mb-8 mt-2", isSidebarCollapsed ? "justify-center" : "justify-between px-2")}>
+          {!isSidebarCollapsed && (
             <div className="flex items-center gap-2">
               <div className="h-6 w-6 bg-slate-900 rounded-md flex items-center justify-center text-white font-bold text-xs">
                 T
@@ -82,16 +80,16 @@ export function AppSidebar({ isCollapsed, toggleSidebar }: AppSidebarProps) {
             </div>
           )}
           
+          {/* 👇 5. Ação de Toggle conectada à store */}
           <Button variant="ghost" size="icon" onClick={toggleSidebar} className="h-8 w-8 text-slate-400 hover:text-slate-600">
-            {isCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+            {isSidebarCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
           </Button>
         </div>
 
-        {/* Menu de Navegação */}
         <div className="space-y-6 flex-1">
           {sidebarItems.map((group, index) => (
             <div key={index}>
-              {!isCollapsed && (
+              {!isSidebarCollapsed && (
                 <h4 className="px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 fade-in">
                   {group.title}
                 </h4>
@@ -110,12 +108,12 @@ export function AppSidebar({ isCollapsed, toggleSidebar }: AppSidebarProps) {
                           isActive
                             ? "bg-slate-200/60 text-slate-900"
                             : "text-slate-500 hover:bg-slate-100 hover:text-slate-900",
-                          isCollapsed && "justify-center px-0"
+                          isSidebarCollapsed && "justify-center px-0"
                         )}
-                        title={isCollapsed ? item.label : undefined}
+                        title={isSidebarCollapsed ? item.label : undefined}
                       >
                         <Icon className="h-5 w-5" />
-                        {!isCollapsed && <span>{item.label}</span>}
+                        {!isSidebarCollapsed && <span>{item.label}</span>}
                       </span>
                     </Link>
                   );
@@ -125,13 +123,11 @@ export function AppSidebar({ isCollapsed, toggleSidebar }: AppSidebarProps) {
           ))}
         </div>
 
-        {/* Rodapé da Sidebar (Perfil Atualizado) */}
-        <div className={cn("pt-4 border-t border-slate-200", isCollapsed && "flex flex-col items-center")}>
-          {!isCollapsed ? (
+        <div className={cn("pt-4 border-t border-slate-200", isSidebarCollapsed && "flex flex-col items-center")}>
+          {!isSidebarCollapsed ? (
             <>
               <div className="flex items-center gap-3 px-2 py-2 mb-2">
                 <div className="h-8 w-8 min-w-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 overflow-hidden border border-slate-300">
-                  {/* Verifica se tem imagem e mostra */}
                   {displayImage ? (
                      // eslint-disable-next-line @next/next/no-img-element
                     <img src={displayImage} alt="Avatar" className="h-full w-full object-cover" />

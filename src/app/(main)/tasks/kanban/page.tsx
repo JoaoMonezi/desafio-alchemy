@@ -1,6 +1,6 @@
 import { auth } from "@/Config/auth";
 import { redirect } from "next/navigation";
-import { TaskKanban } from "@/features/TaskManager/components/task-kanban";
+import { TaskKanban } from "@/app/(main)/tasks/_components/task-kanban";
 
 export default async function KanbanPage() {
   const session = await auth();

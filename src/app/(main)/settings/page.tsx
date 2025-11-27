@@ -1,6 +1,6 @@
 import { auth } from "@/Config/auth";
 import { redirect } from "next/navigation";
-import { ProfileContent } from "@/features/Profile/components/profile-content";
+import { ProfileContent } from "@/app/(main)/settings/_components/profile-content";
 
 export default async function SettingsPage() {
   const session = await auth();

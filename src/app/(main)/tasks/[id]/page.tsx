@@ -2,7 +2,7 @@ import { auth } from "@/Config/auth";
 import { redirect, notFound } from "next/navigation";
 import { appRouter } from "@/lib/trpc/route";
 import { createCallerFactory, createTRPCContext } from "@/lib/trpc/init";
-import { TaskDetailView } from "@/features/TaskManager/components/task-detail-view"; // Importa o componente visual da Feature
+import { TaskDetailView } from "@/app/(main)/tasks/_components/task-detail-view"; // Importa o componente visual da Feature
 
 interface TaskPageProps {
   params: Promise<{ id: string }>;

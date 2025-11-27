@@ -1,6 +1,6 @@
 import { auth } from "@/Config/auth";
 import { redirect } from "next/navigation";
-import { TaskForm } from "@/features/TaskManager/components/task-form";
+import { TaskForm } from "@/app/(main)/tasks/_components/task-form";
 
 export default async function NewTaskPage() {
   // 1. Proteção da Rota (Backend)

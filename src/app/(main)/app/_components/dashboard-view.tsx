@@ -15,7 +15,7 @@ import {
 import { Skeleton } from "@/_shared/components/skeleton"; // Supondo que tenha, ou usamos div
 
 export function DashboardView() {
-  const { data: stats, isLoading } = trpc.tasks.getDashboardStats.useQuery();
+  const { data: stats, isLoading } = trpc.dashboard.getStats.useQuery();
 
   if (isLoading || !stats) {
     return (

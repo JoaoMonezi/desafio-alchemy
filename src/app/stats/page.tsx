@@ -21,7 +21,7 @@ export default async function StatsPage() {
   const caller = createCallerFactory(appRouter)(ctx);
   
   // Busca os dados (Roda no build e na revalidação a cada 10min)
-  const stats = await caller.tasks.getPublicStats();
+  const stats = await caller.dashboard.getPublicStats();
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">

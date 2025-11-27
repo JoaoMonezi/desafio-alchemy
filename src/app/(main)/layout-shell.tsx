@@ -1,34 +1,31 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { AppSidebar } from "@/_shared/components/app-sidebar";
+import { useAppStore } from "@/app/store"; // <--- Importa a Store Global
 import { cn } from "@/_shared/util/utils";
 
 export function LayoutShell({ children }: { children: React.ReactNode }) {
-  // Estado para controlar se está fechado ou aberto
-  // Dica: Poderíamos salvar isso no localStorage para lembrar a preferência do usuário
-  const [isCollapsed, setIsCollapsed] = useState(false);
-
-  // Evita flash de hidratação se usássemos localStorage, por enquanto padrão é false
+  // Apenas lê o estado global para ajustar a margem
+  const { isSidebarCollapsed } = useAppStore();
+  
+  // Mantemos o mounted para evitar hydration mismatch
+  // (Porque o servidor não sabe o estado inicial do Zustand no client)
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  if (!mounted) return null; // Ou um skeleton
+  if (!mounted) return null; 
 
   return (
     <div className="flex min-h-screen bg-white">
-      {/* Sidebar Controlada */}
-      <AppSidebar 
-        isCollapsed={isCollapsed} 
-        toggleSidebar={() => setIsCollapsed(!isCollapsed)} 
-      />
+      {/* Sidebar agora é autônoma, não precisa de props */}
+      <AppSidebar />
 
-      {/* Área de Conteúdo */}
       <main 
         className={cn(
           "flex-1 min-h-screen bg-white transition-all duration-300 ease-in-out",
-          // Ajusta a margem esquerda dependendo do tamanho da sidebar
-          isCollapsed ? "ml-20" : "ml-64"
+          // Ajusta a margem esquerda baseada no estado global
+          isSidebarCollapsed ? "ml-20" : "ml-64"
         )}
       >
         {children}

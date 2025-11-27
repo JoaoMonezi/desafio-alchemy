@@ -1,6 +1,6 @@
 import { auth } from "@/Config/auth";
 import { redirect } from "next/navigation";
-import { TaskList } from "@/features/TaskManager/components/task-list";
+import { TaskList } from "@/app/(main)/tasks/_components/task-list";
 
 export default async function TasksPage() {
   const session = await auth();

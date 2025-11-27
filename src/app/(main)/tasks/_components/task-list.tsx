@@ -18,7 +18,7 @@ import {
   ArrowDownWideNarrow,
   ArrowUpNarrowWide
 } from "lucide-react";
-import { useTaskStore } from "../store/taskStore";
+import { useTaskStore } from "../store";
 
 import {
   Table,

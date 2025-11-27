@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import { trpc } from "@/lib/trpc/client";
-import { useUploadThing } from "@/lib/uploadthing";
+import { useUploadThing } from "@/_shared/services/uploadthing";
 import { useRouter } from "next/navigation";
 import type { Session } from "next-auth";
 import { toast } from "sonner";
