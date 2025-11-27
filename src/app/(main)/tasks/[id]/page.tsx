@@ -1,6 +1,6 @@
 import { auth } from "@/Config/auth";
 import { redirect, notFound } from "next/navigation";
-import { appRouter } from "@/lib/trpc/router";
+import { appRouter } from "@/lib/trpc/route";
 import { createCallerFactory, createTRPCContext } from "@/lib/trpc/init";
 import Link from "next/link";
 import { Button } from "@/_shared/components/button";
@@ -44,7 +44,7 @@ export default async function TaskDetailPage({ params }: TaskPageProps) {
 
   return (
     <div className="p-8 max-w-5xl mx-auto flex flex-col gap-8">
-      
+
       {/* 1. CABEÇALHO: Botão Voltar + Título */}
       <div className="flex flex-col gap-4">
         <div>
@@ -67,7 +67,7 @@ export default async function TaskDetailPage({ params }: TaskPageProps) {
 
       {/* 2. GRID PRINCIPAL (2 Colunas) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        
+
         {/* --- LINHA 1 --- */}
 
         {/* BLOCO 1: Descrição */}
