@@ -3,11 +3,9 @@ import { passwordResetTokens } from "../../../database/schema";
 import { eq } from "drizzle-orm";
 
 export const generatePasswordResetToken = async (email: string) => {
-  // 1. Gera um token aleatório e data de expiração (1 hora)
   const token = crypto.randomUUID();
-  const expires = new Date(new Date().getTime() + 3600 * 1000); // 1 hora
+  const expires = new Date(new Date().getTime() + 3600 * 1000); 
 
-  // 2. Verifica se já existe um token para esse email e apaga
   const existingToken = await db
     .select()
     .from(passwordResetTokens)
@@ -19,7 +17,6 @@ export const generatePasswordResetToken = async (email: string) => {
       .where(eq(passwordResetTokens.id, existingToken[0].id));
   }
 
-  // 3. Cria o novo token no banco
   const [passwordResetToken] = await db
     .insert(passwordResetTokens)
     .values({

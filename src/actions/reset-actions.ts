@@ -8,7 +8,6 @@ import { sendPasswordResetEmail } from "@/_shared/services/mail";
 import bcrypt from "bcryptjs";
 import { passwordSchema } from "@/_shared/util/schemas";
 
-// Ação 1: Reset (Agora avisa se o email não existe)
 export const reset = async (prevState: any, formData: FormData) => {
   const email = formData.get("email") as string;
 
@@ -19,7 +18,6 @@ export const reset = async (prevState: any, formData: FormData) => {
     .from(users)
     .where(eq(users.email, email));
 
-  // MUDANÇA: Agora retornamos erro explícito em vez de sucesso falso
   if (!existingUser) {
     return { error: "Email não encontrado!" };
   }
@@ -33,7 +31,6 @@ export const reset = async (prevState: any, formData: FormData) => {
   return { success: "Email de redefinição enviado!" };
 };
 
-// Ação 2: Nova Senha
 export const newPassword = async (prevState: any, formData: FormData) => {
   const password = formData.get("password") as string;
   const token = formData.get("token") as string;
@@ -42,14 +39,12 @@ export const newPassword = async (prevState: any, formData: FormData) => {
     return { error: "Token ausente! Tente clicar no link do email novamente." };
   }
 
-  // 1. Validação Zod (Senha Forte)
   const validation = passwordSchema.safeParse(password);
 
   if (!validation.success) {
     return { error: validation.error.issues[0].message };
   }
 
-  // 2. Valida o token no banco
   const existingToken = await getPasswordResetTokenByToken(token);
 
   if (!existingToken) {

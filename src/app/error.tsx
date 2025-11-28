@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { Button } from "@/_shared/components/button"; // Já apontando para o local certo
+import { Button } from "@/_shared/components/button"; 
 import { AlertTriangle } from "lucide-react";
 
 export default function Error({

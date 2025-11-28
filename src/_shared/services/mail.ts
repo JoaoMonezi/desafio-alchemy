@@ -2,12 +2,11 @@ import nodemailer from "nodemailer";
 
 const domain = process.env.NEXT_PUBLIC_APP_URL;
 
-// Configuração do "Carteiro" (Transporter)
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
     user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS, // Use a SENHA DE APP, não a senha normal
+    pass: process.env.EMAIL_PASS, 
   },
 });
 

@@ -5,18 +5,15 @@ import { eq, and, desc, asc, gte, lte, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { TRPCError } from "@trpc/server";
-import { ratelimit } from "@/Config/ratelimit"; // <--- Importante: Configuração do Redis
+import { ratelimit } from "@/Config/ratelimit";
 
 
-// Inferindo o tipo de inserção do Drizzle
 type TaskInsert = typeof tasks.$inferInsert;
 
 export const taskRouter = createTRPCRouter({
-  // 1. CREATE
   create: protectedProcedure
     .input(createTaskSchema)
     .mutation(async ({ ctx, input }) => {
-      // Usando '!' e 'as string' para segurança máxima do compilador
       const userId = ctx.session.user!.id as string; 
 
       const { success } = await ratelimit.limit(`create_task:${userId}`);
@@ -24,7 +21,6 @@ export const taskRouter = createTRPCRouter({
         throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Muitas requisições." });
       }
 
-      // Construção estrita do objeto de inserção
       await ctx.db.insert(tasks).values({
         title: input.title,
         description: input.description,
@@ -35,12 +31,10 @@ export const taskRouter = createTRPCRouter({
       } as TaskInsert); 
     }),
 
-  // 2. GET ALL
   getAll: protectedProcedure
     .input(filterTaskSchema.optional())
     .query(async ({ ctx, input }) => {
       const userId = ctx.session.user!.id as string; 
-      // ✅ CORREÇÃO: Asserção de tipo em todos os 'userId'
       const filters = [eq(tasks.userId, userId)];
       
       if (input?.status) filters.push(eq(tasks.status, input.status));
@@ -55,7 +49,6 @@ export const taskRouter = createTRPCRouter({
       return ctx.db.select().from(tasks).where(and(...filters)).orderBy(orderBy);
     }),
 
-  // 3. GET BY ID
   getById: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
@@ -67,7 +60,6 @@ export const taskRouter = createTRPCRouter({
       return task || null;
     }),
 
-  // 4. UPDATE
   update: protectedProcedure
     .input(updateTaskSchema)
     .mutation(async ({ ctx, input }) => {
@@ -77,7 +69,6 @@ export const taskRouter = createTRPCRouter({
         .where(and(eq(tasks.id, id), eq(tasks.userId, userId)));
     }),
 
-  // 5. DELETE
   delete: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {

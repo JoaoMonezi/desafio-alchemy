@@ -2,11 +2,9 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
-// Imports adjusted to your structure
-// Note: If Toaster is red, check if the path matches where you moved the file
 import { Toaster } from "@/_shared/components/sonner"; 
 import { TRPCProvider } from "@/components/providers/trpc-provider";
-import { SessionProvider } from "next-auth/react"; // <--- THE MISSING PIECE
+import { SessionProvider } from "next-auth/react"; 
 
 const geistSans = Geist({
   variable: "--font-geist-sans",

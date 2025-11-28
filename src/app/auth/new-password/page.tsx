@@ -28,7 +28,6 @@ import {
   FormMessage,
 } from "@/_shared/components/form";
 
-// Schema local usando a regra de senha forte
 const formSchema = z.object({
   password: passwordSchema,
 });
@@ -49,7 +48,6 @@ function NewPasswordForm() {
     },
   });
 
-  // Sucesso: Toast verde e redirecionamento
   useEffect(() => {
     if (state?.success) {
       toast.success(state.success);

@@ -1,5 +1,4 @@
 import { registerSchema, passwordSchema } from "@/_shared/util/schemas"; 
-// ⚠️ Se o teste falhar no import, verifique se o caminho é "@/_shared/util/schemas" ou "@/lib/schemas"
 
 describe("Validação de Schemas (Unitário)", () => {
   
@@ -37,7 +36,6 @@ describe("Validação de Schemas (Unitário)", () => {
       
       expect(result.success).toBe(false);
       if (!result.success) {
-        // Verifica se a mensagem de erro específica do regex apareceu
         expect(result.error.issues[0].message).toContain("apenas letras");
       }
     });

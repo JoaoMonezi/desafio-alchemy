@@ -12,7 +12,7 @@ import {
   CalendarDays, 
   Trophy 
 } from "lucide-react";
-import { Skeleton } from "@/_shared/components/skeleton"; // Supondo que tenha, ou usamos div
+import { Skeleton } from "@/_shared/components/skeleton";
 
 export function DashboardView() {
   const { data: stats, isLoading } = trpc.dashboard.getStats.useQuery();
@@ -141,7 +141,6 @@ export function DashboardView() {
   );
 }
 
-// Componente Auxiliar interno (poderia ser extraído se usado em outro lugar)
 function KpiCard({ title, value, icon: Icon, color, bg }: any) {
   return (
     <div className="p-6 bg-white border rounded-xl shadow-sm flex items-center gap-4">

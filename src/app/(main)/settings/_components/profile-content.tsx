@@ -27,11 +27,10 @@ export function ProfileContent({ session }: { session: Session }) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  const utils = trpc.useUtils(); // Hook para atualizar dados na tela
+  const utils = trpc.useUtils(); 
 
-  // 1. Buscamos os dados REAIS do banco (que tem a foto nova), não da sessão (que tem a velha)
   const { data: userProfile } = trpc.profile.getProfile.useQuery(undefined, {
-    initialData: session.user as any, // Usa a sessão enquanto carrega para não piscar
+    initialData: session.user as any, 
   });
 
   const { data: stats, isLoading } = trpc.dashboard.getStats.useQuery();
@@ -45,7 +44,6 @@ export function ProfileContent({ session }: { session: Session }) {
       
       toast.success("Foto atualizada!");
       
-      // 2. Força o tRPC a buscar o perfil de novo no banco
       utils.profile.getProfile.invalidate();
       router.refresh(); 
     },
@@ -64,7 +62,6 @@ export function ProfileContent({ session }: { session: Session }) {
   const completedTasks = totalTasks - (stats?.kpi.pending || 0);
   const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
-  // Usamos a imagem do userProfile (banco) preferencialmente
   const displayImage = userProfile?.image || "";
   const displayName = userProfile?.name || session.user?.name || "Usuário";
   const displayEmail = userProfile?.email || session.user?.email || "";
