@@ -10,7 +10,7 @@ import { ratelimit } from "@/Config/ratelimit";
 type TaskInsert = typeof tasks.$inferInsert;
 
 export const taskRouter = createTRPCRouter({
-  // 1. CREATE (Corrigido: Garantindo que todos os valores null/default são resolvidos)
+  // 1. CREATE (✅ CORRIGIDO SEM WARNINGS)
   create: protectedProcedure
     .input(createTaskSchema)
     .mutation(async ({ ctx, input }) => {
@@ -18,20 +18,28 @@ export const taskRouter = createTRPCRouter({
       
       const { success } = await ratelimit.limit(`create_task:${userId}`);
       if (!success) {
-        throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Muitas requisições." });
+        throw new TRPCError({ 
+          code: "TOO_MANY_REQUESTS", 
+          message: "Muitas requisições." 
+        });
       }
 
-      // ✅ CORREÇÃO: Forçamos a inserção de 'null' ou o objeto Date
-      const dueDateValue = input.dueDate instanceof Date ? input.dueDate : null; 
-
-      await ctx.db.insert(tasks).values({
+      // ✅ Construir objeto com tipagem correta
+      const taskData = {
         title: input.title,
         description: input.description,
         priority: input.priority,
         status: input.status,
-        dueDate: dueDateValue, // Usamos o valor tratado (Date | null)
-        userId: userId, 
-      } as TaskInsert); 
+        userId: userId,
+        ...(input.dueDate instanceof Date && { dueDate: input.dueDate }),
+      } satisfies Omit<TaskInsert, 'id' | 'createdAt' | 'updatedAt'>;
+
+      const [newTask] = await ctx.db
+        .insert(tasks)
+        .values(taskData)
+        .returning();
+
+      return newTask;
     }),
 
   // 2. GET ALL
@@ -53,7 +61,7 @@ export const taskRouter = createTRPCRouter({
       return ctx.db.select().from(tasks).where(and(...filters)).orderBy(orderBy);
     }),
 
-  // 3. GET BY ID (Mantido)
+  // 3. GET BY ID
   getById: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
@@ -65,27 +73,54 @@ export const taskRouter = createTRPCRouter({
       return task || null;
     }),
 
-  // 4. UPDATE (Aplica a mesma lógica para dueDate)
+  // 4. UPDATE
   update: protectedProcedure
     .input(updateTaskSchema)
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session.user!.id as string;
       const { id, dueDate, ...data } = input;
       
-      // Mapeia dueDate para null se for undefined ou null
-      const dueDateUpdate = dueDate === undefined ? undefined : (dueDate || null);
-
-      await ctx.db.update(tasks).set({
+      // Construir objeto de atualização
+      const updateData = {
         ...data,
-        dueDate: dueDateUpdate,
-      }).where(and(eq(tasks.id, id), eq(tasks.userId, userId)));
+        updatedAt: new Date(),
+        ...(dueDate !== undefined && { dueDate: dueDate || null }),
+      };
+
+      const [updatedTask] = await ctx.db
+        .update(tasks)
+        .set(updateData)
+        .where(and(eq(tasks.id, id), eq(tasks.userId, userId)))
+        .returning();
+
+      if (!updatedTask) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Tarefa não encontrada."
+        });
+      }
+
+      return updatedTask;
     }),
 
-  // 5. DELETE (Mantido)
+  // 5. DELETE
   delete: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session.user!.id as string;
-      await ctx.db.delete(tasks).where(and(eq(tasks.id, input.id), eq(tasks.userId, userId)));
+      
+      const [deletedTask] = await ctx.db
+        .delete(tasks)
+        .where(and(eq(tasks.id, input.id), eq(tasks.userId, userId)))
+        .returning();
+
+      if (!deletedTask) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Tarefa não encontrada."
+        });
+      }
+
+      return { success: true, id: deletedTask.id };
     }),
 });
