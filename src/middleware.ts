@@ -3,8 +3,8 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 export async function middleware(req: NextRequest) {
-  console.log(">>> Cookies no middleware:");
-req.cookies.getAll().forEach((c) => console.log(c.name, "=", c.value));
+  console.log("AUTH_SECRET", process.env.AUTH_SECRET);
+console.log("NEXTAUTH_SECRET", process.env.NEXTAUTH_SECRET);
   const { pathname } = req.nextUrl;
   
   // 1. Definir quais rotas são protegidas e quais são de auth

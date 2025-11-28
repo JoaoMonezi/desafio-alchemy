@@ -7,6 +7,7 @@ import { decode } from "next-auth/jwt";
 
 export async function GET(req: Request) {
   // 1. O Middleware manda o cookie bruto no header
+  console.log("session check SECRET", process.env.AUTH_SECRET);
   const token = req.headers.get("x-session-token");
 
   if (!token) {
