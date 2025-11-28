@@ -1,16 +1,30 @@
 version: '3.8'
-services:
-  db:
-    image: postgres:16-alpine
-    container_name: alchemy_db
-    environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: admin
-      POSTGRES_DB: alchemy_task_db
-    ports:
-      - '5433:5432'
-    volumes:
-      - alchemy_pg_data:/var/lib/postgresql/data
 
-volumes:
-  alchemy_pg_data:
+services:
+  # Serviço da Aplicação Next.js
+  app:
+    container_name: taskmaster_app
+    
+    # Construi a imagem a partir do Dockerfile na pasta atual
+    build:
+      context: .
+      dockerfile: Dockerfile
+    
+    # Mapeia a porta 3000 do container para a 3000 do seu computador/servidor
+    ports:
+      - "3000:3000"
+    
+    # Carrega as variáveis do seu arquivo .env local para dentro do container
+    # Isso é essencial para conectar no Supabase, Google, etc.
+    env_file:
+      - .env
+    
+    # Define variável de ambiente para produção
+    environment:
+      - NODE_ENV=production
+    
+    # Reinicia automaticamente se cair (exceto se você parar manualmente)
+    restart: unless-stopped
+
+# Não precisamos mais de volumes ou serviços de 'db' (postgres)
+# pois o banco agora é gerenciado pelo Supabase na nuvem.

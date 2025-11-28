@@ -13,7 +13,7 @@ export const profileRouter = createTRPCRouter({
       await ctx.db
         .update(users)
         .set({ image: input.imageUrl }) // Campo 'image' na tabela 'user'
-        .where(eq(users.id, ctx.session.user.id));
+        .where(eq(users.id, ctx.session.user.id!));
       
       return { success: true };
     }),
@@ -23,7 +23,7 @@ export const profileRouter = createTRPCRouter({
     const [user] = await ctx.db
       .select()
       .from(users)
-      .where(eq(users.id, ctx.session.user.id));
-    return user;
+      .where(eq(users.id, ctx.session.user.id!));
+      return user;
   }),
 });

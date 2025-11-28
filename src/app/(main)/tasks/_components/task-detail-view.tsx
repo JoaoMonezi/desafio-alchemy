@@ -6,7 +6,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/_shared/util/utils";
 
-// Definimos a interface do que esse componente precisa para renderizar
+// 🚨 CORREÇÃO DA INTERFACE AQUI:
 interface TaskDetailViewProps {
   task: {
     id: string;
@@ -15,7 +15,8 @@ interface TaskDetailViewProps {
     status: "TODO" | "IN_PROGRESS" | "DONE" | string;
     priority: "LOW" | "MEDIUM" | "HIGH" | string;
     dueDate: Date | null;
-    createdAt: Date;
+    createdAt: Date; // Corrigido: Não aceita mais null
+    updatedAt: Date; // Corrigido: Não aceita mais null
   };
 }
 

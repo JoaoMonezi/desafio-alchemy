@@ -11,7 +11,7 @@ import { format } from "date-fns";
 import { CalendarIcon } from "lucide-react";
 import { cn } from "@/_shared/util/utils";
 
-// Imports de UI corrigidos (sem /ui no final)
+/// Imports de UI
 import { Button } from "@/_shared/components/button";
 import { Input } from "@/_shared/components/input";
 import { Textarea } from "@/_shared/components/textarea";
@@ -37,6 +37,9 @@ import {
   PopoverTrigger,
 } from "@/_shared/components/popover";
 
+// MUDANÇA: O Zod faz inferência correta, mas se for para resolver o erro,
+// a melhor prática é garantir que os 'defaultValues' coincidam
+// estritamente com os tipos string literais definidos.
 type TaskFormValues = z.infer<typeof createTaskSchema>;
 
 interface TaskFormProps {
@@ -49,23 +52,27 @@ export function TaskForm({ onSuccess }: TaskFormProps) {
 
   const form = useForm<TaskFormValues>({
     resolver: zodResolver(createTaskSchema),
+    // 🚨 CORREÇÃO: Usamos o Non-Nullable Assertion no lado do RHF
+    // Embora o Zod defina o default, o RHF precisa de valores não-nulos iniciais
+    // para campos que não são marcados como .optional() no schema.
     defaultValues: {
       title: "",
       description: "",
-      priority: "MEDIUM",
-      status: "TODO",
+      priority: "MEDIUM", 
+      status: "TODO",    
+      dueDate: undefined, // Opcional, então pode ser undefined/null
     },
   });
 
   const createTask = trpc.tasks.create.useMutation({
     onSuccess: () => {
       toast.success("Tarefa criada com sucesso!");
-      form.reset();
-      utils.tasks.getAll.invalidate();
+      form.reset(); 
+      utils.tasks.getAll.invalidate(); 
       
       if (onSuccess) {
         onSuccess();
-      } 
+      }
     },
     onError: (error) => {
       toast.error(`Erro ao criar: ${error.message}`);
@@ -80,7 +87,7 @@ export function TaskForm({ onSuccess }: TaskFormProps) {
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 w-full max-w-full">
         
-        {/* Título - Largura Total e Texto Escuro */}
+        {/* Título */}
         <FormField
           control={form.control}
           name="title"
@@ -90,7 +97,6 @@ export function TaskForm({ onSuccess }: TaskFormProps) {
               <FormControl>
                 <Input 
                   placeholder="Ex: Finalizar relatório mensal" 
-                  // CORREÇÃO: text-slate-900 adicionado para corrigir cor branca
                   className="text-lg py-6 bg-white text-slate-900 w-full" 
                   {...field} 
                 />
@@ -100,7 +106,7 @@ export function TaskForm({ onSuccess }: TaskFormProps) {
           )}
         />
 
-        {/* Descrição - Movido para CIMA dos filtros e Largura Total */}
+        {/* Descrição */}
         <FormField
           control={form.control}
           name="description"
@@ -120,7 +126,7 @@ export function TaskForm({ onSuccess }: TaskFormProps) {
           )}
         />
 
-        {/* Grid de Filtros/Controles - Movido para BAIXO da descrição */}
+        {/* Filtros */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full">
           {/* Prioridade */}
           <FormField
@@ -170,7 +176,7 @@ export function TaskForm({ onSuccess }: TaskFormProps) {
             )}
           />
 
-          {/* Data de Vencimento */}
+          {/* Vencimento */}
           <FormField
             control={form.control}
             name="dueDate"
@@ -215,7 +221,6 @@ export function TaskForm({ onSuccess }: TaskFormProps) {
           />
         </div>
 
-        {/* Botão Centralizado */}
         <div className="flex justify-center pt-4 border-t border-slate-100 w-full">
             <Button type="submit" size="lg" className="w-full md:w-auto px-8" disabled={createTask.isPending}>
             {createTask.isPending ? "Salvando..." : "Criar Tarefa"}

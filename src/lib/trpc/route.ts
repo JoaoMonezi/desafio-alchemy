@@ -1,5 +1,5 @@
 import { createTRPCRouter, publicProcedure, protectedProcedure } from "./init";
-import { tasksRouter } from "@/server/api/routers/task/router";
+import { taskRouter } from "@/server/api/routers/task/router";
 import { profileRouter } from "@/server/api/routers/profile/route" ;
 import { dashboardRouter } from "@/server/api/routers/dashboard/router";
 
@@ -17,7 +17,7 @@ export const appRouter = createTRPCRouter({
   }),
 
   // Feature: Tarefas
-  tasks: tasksRouter,
+  tasks: taskRouter,
   
   // Feature: Perfil (✅ 2. Adicionar aqui)
   profile: profileRouter, 

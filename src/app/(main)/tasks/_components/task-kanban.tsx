@@ -42,11 +42,13 @@ import {
   PopoverTrigger,
 } from "@/_shared/components/popover";
 import { Calendar } from "@/_shared/components/calendar";
+import { useTaskStore } from "../store";
 
 // Tipos
 type Status = "TODO" | "IN_PROGRESS" | "DONE";
 type Priority = "LOW" | "MEDIUM" | "HIGH";
 
+// ✅ TIPAGEM DA TAREFA (Usamos Date | null para refletir o estado do Drizzle/DB)
 type Task = {
   id: string;
   title: string;
@@ -66,13 +68,11 @@ export function TaskKanban() {
   const utils = trpc.useUtils();
   const { data: serverTasks, isLoading } = trpc.tasks.getAll.useQuery({});
   
-  // 1. Estado Local para Optimistic UI (Fluidez)
   const [localTasks, setLocalTasks] = useState<Task[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
 
-  // 2. Estados para Modais (Edição e Criação)
   const [editingTask, setEditingTask] = useState<Task | null>(null);
-  const [creatingColumn, setCreatingColumn] = useState<Status | null>(null); // Guarda qual coluna abriu o modal
+  const [creatingColumn, setCreatingColumn] = useState<Status | null>(null);
   const [newTaskData, setNewTaskData] = useState<{
     title: string;
     description: string;
@@ -83,11 +83,11 @@ export function TaskKanban() {
   // Sincroniza o servidor com o local quando carrega ou revalida
   useEffect(() => {
     if (serverTasks) {
-      setLocalTasks(serverTasks);
+      setLocalTasks(serverTasks as Task[]); // Garantindo que o tipo seja Task[]
     }
   }, [serverTasks]);
 
-  // Mutações
+  // Mutações (omitidas para brevidade)
   const updateTask = trpc.tasks.update.useMutation({
     onSuccess: () => utils.tasks.getAll.invalidate(),
     onError: () => {
@@ -100,7 +100,7 @@ export function TaskKanban() {
     onSuccess: () => {
       toast.success("Tarefa criada!");
       setCreatingColumn(null);
-      setNewTaskData({ title: "", description: "", priority: "MEDIUM", dueDate: undefined }); // Reset form
+      setNewTaskData({ title: "", description: "", priority: "MEDIUM", dueDate: undefined });
       utils.tasks.getAll.invalidate();
     },
     onError: (err) => toast.error(`Erro: ${err.message}`),
@@ -129,20 +129,14 @@ export function TaskKanban() {
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     setActiveId(null);
-
     if (!over) return;
-
     const taskId = active.id as string;
     const newStatus = over.id as Status;
     const currentTask = localTasks.find((t) => t.id === taskId);
-
     if (currentTask && currentTask.status !== newStatus) {
-      // 1. Atualiza visualmente NA HORA (Sem esperar servidor)
       setLocalTasks((prev) =>
         prev.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t))
       );
-
-      // 2. Avisa o servidor em background
       updateTask.mutate({ id: taskId, status: newStatus });
     }
   }
@@ -154,7 +148,6 @@ export function TaskKanban() {
   // --- Lógica de Edição ---
   const handleSaveEdit = () => {
     if (!editingTask) return;
-    // Atualiza otimistamente também
     setLocalTasks((prev) => prev.map(t => t.id === editingTask.id ? editingTask : t));
     setEditingTask(null);
     
@@ -170,7 +163,6 @@ export function TaskKanban() {
 
   // --- Lógica de Deleção ---
   const handleDelete = (taskId: string) => {
-    // Otimista: remove da lista local
     setLocalTasks((prev) => prev.filter((t) => t.id !== taskId));
     deleteTask.mutate({ id: taskId });
   };
@@ -184,7 +176,7 @@ export function TaskKanban() {
       title: newTaskData.title,
       description: newTaskData.description,
       priority: newTaskData.priority,
-      status: creatingColumn, // TRAVADO NA COLUNA
+      status: creatingColumn,
       dueDate: newTaskData.dueDate,
     });
   };
@@ -215,7 +207,7 @@ export function TaskKanban() {
               tasks={columns[col.id]} 
               colorClass={col.color}
               onAdd={() => setCreatingColumn(col.id)}
-              onEdit={(task) => setEditingTask(task)}
+              onEdit={(task: Task) => setEditingTask(task)}
               onDelete={(id) => handleDelete(id)}
             />
           ))}
@@ -228,7 +220,7 @@ export function TaskKanban() {
         </DragOverlay>
       </DndContext>
 
-      {/* --- MODAL DE CRIAÇÃO (Status Travado) --- */}
+      {/* --- MODAL DE CRIAÇÃO --- */}
       <Dialog open={!!creatingColumn} onOpenChange={(open) => !open && setCreatingColumn(null)}>
         <DialogContent className="sm:max-w-[500px] bg-white text-slate-900">
           <DialogHeader>
@@ -245,36 +237,23 @@ export function TaskKanban() {
               />
             </div>
             
-            {/* Campos lado a lado: Status e Prioridade */}
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label>Status (Bloqueado)</Label>
-                <Select 
-                  value={creatingColumn || undefined} 
-                  disabled // <--- TRAVADO AQUI
-                >
-                  <SelectTrigger className="bg-slate-100 text-slate-500 cursor-not-allowed">
-                    <SelectValue />
-                  </SelectTrigger>
+                <Select value={creatingColumn || undefined} disabled>
+                  <SelectTrigger className="bg-slate-100 text-slate-500 cursor-not-allowed"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="TODO">A Fazer</SelectItem>
-                    <SelectItem value="IN_PROGRESS">Em Progresso</SelectItem>
-                    <SelectItem value="DONE">Concluído</SelectItem>
+                    <SelectItem value="TODO">A Fazer</SelectItem><SelectItem value="IN_PROGRESS">Em Progresso</SelectItem><SelectItem value="DONE">Concluído</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="grid gap-2">
                 <Label>Prioridade</Label>
-                <Select 
-                  value={newTaskData.priority} 
-                  onValueChange={(v: Priority) => setNewTaskData({...newTaskData, priority: v})}
-                >
+                <Select value={newTaskData.priority} onValueChange={(v: Priority) => setNewTaskData({...newTaskData, priority: v})}>
                   <SelectTrigger className="bg-white text-slate-900 border-slate-200"><SelectValue /></SelectTrigger>
                   <SelectContent className="bg-white">
-                    <SelectItem value="LOW">Baixa</SelectItem>
-                    <SelectItem value="MEDIUM">Média</SelectItem>
-                    <SelectItem value="HIGH">Alta</SelectItem>
+                    <SelectItem value="LOW">Baixa</SelectItem><SelectItem value="MEDIUM">Média</SelectItem><SelectItem value="HIGH">Alta</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -284,14 +263,7 @@ export function TaskKanban() {
               <Label>Vencimento</Label>
               <Popover>
                 <PopoverTrigger asChild>
-                  {/* CORREÇÃO VISUAL: Forçando bg-white, borda e texto escuro */}
-                  <Button 
-                    variant={"outline"} 
-                    className={cn(
-                      "w-full justify-start text-left font-normal bg-white text-slate-900 border-slate-200 hover:bg-slate-50",
-                      !newTaskData.dueDate && "text-muted-foreground"
-                    )}
-                  >
+                  <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal bg-white text-slate-900 border-slate-200 hover:bg-slate-50", !newTaskData.dueDate && "text-muted-foreground")}>
                     <CalendarIcon className="mr-2 h-4 w-4 opacity-50" />
                     {newTaskData.dueDate ? format(newTaskData.dueDate, "PPP", { locale: ptBR }) : <span>Sem data</span>}
                   </Button>
@@ -300,20 +272,16 @@ export function TaskKanban() {
                   <Calendar 
                     mode="single" 
                     selected={newTaskData.dueDate} 
-                    onSelect={(d) => setNewTaskData({...newTaskData, dueDate: d})} 
+                    onSelect={(d) => setNewTaskData({...newTaskData, dueDate: d || undefined})} // ✅ CORRIGIDO: Passa undefined se a data for null
                     initialFocus 
-                    className="bg-white"
+                    className="bg-white" 
                   />
                 </PopoverContent>
               </Popover>
             </div>
             <div className="grid gap-2">
               <Label>Descrição</Label>
-              <Textarea 
-                value={newTaskData.description}
-                onChange={(e) => setNewTaskData({...newTaskData, description: e.target.value})}
-                className="bg-white text-slate-900 border-slate-200 resize-none"
-              />
+              <Textarea value={newTaskData.description} onChange={(e) => setNewTaskData({...newTaskData, description: e.target.value})} className="bg-white text-slate-900 border-slate-200 resize-none" />
             </div>
           </div>
           <DialogFooter>
@@ -324,8 +292,8 @@ export function TaskKanban() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* --- MODAL DE EDIÇÃO (Status Livre) --- */}
+      
+      {/* --- MODAL DE EDIÇÃO (CORRIGIDO) --- */}
       <Dialog open={!!editingTask} onOpenChange={(open) => !open && setEditingTask(null)}>
         <DialogContent className="sm:max-w-[500px] bg-white text-slate-900">
           <DialogHeader>
@@ -335,38 +303,24 @@ export function TaskKanban() {
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
                 <Label>Título</Label>
-                <Input 
-                  value={editingTask.title} 
-                  onChange={(e) => setEditingTask({ ...editingTask, title: e.target.value })}
-                  className="bg-white text-slate-900 border-slate-200"
-                />
+                <Input value={editingTask.title} onChange={(e) => setEditingTask({ ...editingTask, title: e.target.value })} className="bg-white text-slate-900 border-slate-200" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label>Status</Label>
-                  <Select 
-                    value={editingTask.status} 
-                    onValueChange={(v) => setEditingTask({ ...editingTask, status: v })}
-                  >
+                  <Select value={editingTask.status} onValueChange={(v) => setEditingTask({ ...editingTask, status: v })}>
                     <SelectTrigger className="bg-white text-slate-900 border-slate-200"><SelectValue /></SelectTrigger>
                     <SelectContent className="bg-white">
-                      <SelectItem value="TODO">A Fazer</SelectItem>
-                      <SelectItem value="IN_PROGRESS">Em Progresso</SelectItem>
-                      <SelectItem value="DONE">Concluído</SelectItem>
+                      <SelectItem value="TODO">A Fazer</SelectItem><SelectItem value="IN_PROGRESS">Em Progresso</SelectItem><SelectItem value="DONE">Concluído</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="grid gap-2">
                   <Label>Prioridade</Label>
-                  <Select 
-                    value={editingTask.priority} 
-                    onValueChange={(v) => setEditingTask({ ...editingTask, priority: v })}
-                  >
+                  <Select value={editingTask.priority} onValueChange={(v) => setEditingTask({ ...editingTask, priority: v })}>
                     <SelectTrigger className="bg-white text-slate-900 border-slate-200"><SelectValue /></SelectTrigger>
                     <SelectContent className="bg-white">
-                      <SelectItem value="LOW">Baixa</SelectItem>
-                      <SelectItem value="MEDIUM">Média</SelectItem>
-                      <SelectItem value="HIGH">Alta</SelectItem>
+                      <SelectItem value="LOW">Baixa</SelectItem><SelectItem value="MEDIUM">Média</SelectItem><SelectItem value="HIGH">Alta</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -375,14 +329,7 @@ export function TaskKanban() {
                   <Label>Vencimento</Label>
                   <Popover>
                     <PopoverTrigger asChild>
-                      {/* CORREÇÃO VISUAL: Mesma correção aplicada aqui */}
-                      <Button 
-                        variant={"outline"} 
-                        className={cn(
-                          "w-full justify-start text-left font-normal bg-white text-slate-900 border-slate-200 hover:bg-slate-50",
-                          !editingTask.dueDate && "text-muted-foreground"
-                        )}
-                      >
+                      <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal bg-white text-slate-900 border-slate-200", !editingTask.dueDate && "text-muted-foreground")}>
                         <CalendarIcon className="mr-2 h-4 w-4 opacity-50" />
                         {editingTask.dueDate ? format(new Date(editingTask.dueDate), "PPP", { locale: ptBR }) : <span>Sem data</span>}
                       </Button>
@@ -390,21 +337,18 @@ export function TaskKanban() {
                     <PopoverContent className="w-auto p-0 bg-white" align="start">
                       <Calendar 
                         mode="single" 
+                        // ✅ CORREÇÃO APLICADA: Passa null ou Date
                         selected={editingTask.dueDate ? new Date(editingTask.dueDate) : undefined} 
-                        onSelect={(d) => setEditingTask({...editingTask, dueDate: d})} 
+                        onSelect={(d) => setEditingTask({...editingTask, dueDate: d || null})} 
                         initialFocus
-                        className="bg-white"
+                        className="bg-white" 
                       />
                     </PopoverContent>
                   </Popover>
                 </div>
               <div className="grid gap-2">
                 <Label>Descrição</Label>
-                <Textarea 
-                  value={editingTask.description || ""}
-                  onChange={(e) => setEditingTask({ ...editingTask, description: e.target.value })}
-                  className="bg-white text-slate-900 border-slate-200 resize-none"
-                />
+                <Textarea value={editingTask.description || ""} onChange={(e) => setEditingTask({ ...editingTask, description: e.target.value })} className="bg-white text-slate-900 border-slate-200 resize-none" />
               </div>
             </div>
           )}
@@ -418,9 +362,9 @@ export function TaskKanban() {
   );
 }
 
-// --- SUBCOMPONENTS ---
+// --- SUBCOMPONENTS (Mantidos com a tipagem corrigida) ---
 
-function KanbanColumn({ id, title, tasks, colorClass, onAdd, onEdit, onDelete }: any) {
+function KanbanColumn({ id, title, tasks, colorClass, onAdd, onEdit, onDelete }: { id: Status; title: string; tasks: Task[], colorClass: string; onAdd: () => void; onEdit: (task: Task) => void; onDelete: (id: string) => void; }) {
   const { setNodeRef } = useDroppable({ id: id });
 
   return (
@@ -480,7 +424,6 @@ function TaskCard({ task, isOverlay, onEdit, onDelete }: { task: Task; isOverlay
         </span>
         
         <div className="flex gap-1">
-            {/* Botão Editar */}
             {!isOverlay && (
                 <div 
                     role="button" 
@@ -495,7 +438,6 @@ function TaskCard({ task, isOverlay, onEdit, onDelete }: { task: Task; isOverlay
                     <Pencil className="h-3.5 w-3.5" />
                 </div>
             )}
-            {/* Botão Deletar (Lixeira) */}
             {!isOverlay && (
                 <div 
                     role="button" 

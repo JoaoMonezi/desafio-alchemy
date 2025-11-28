@@ -34,7 +34,7 @@ export function ProfileContent({ session }: { session: Session }) {
     initialData: session.user as any, // Usa a sessão enquanto carrega para não piscar
   });
 
-  const { data: stats, isLoading } = trpc.tasks.getDashboardStats.useQuery();
+  const { data: stats, isLoading } = trpc.dashboard.getStats.useQuery();
   const updateAvatarMutation = trpc.profile.updateAvatar.useMutation();
 
   const { startUpload, isUploading } = useUploadThing("imageUploader", {

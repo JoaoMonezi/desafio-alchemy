@@ -1,6 +1,5 @@
 import { z } from "zod";
 
-// Enums do banco espelhados no Zod
 export const taskStatusSchema = z.enum(["TODO", "IN_PROGRESS", "DONE"]);
 export const taskPrioritySchema = z.enum(["LOW", "MEDIUM", "HIGH"]);
 
@@ -8,8 +7,13 @@ export const taskPrioritySchema = z.enum(["LOW", "MEDIUM", "HIGH"]);
 export const createTaskSchema = z.object({
   title: z.string().min(1, "O título é obrigatório").max(100),
   description: z.string().min(1, "A descrição é obrigatória"),
-  priority: taskPrioritySchema.default("MEDIUM"),
-  status: taskStatusSchema.default("TODO"),
+  
+  // ✅ AJUSTE CRÍTICO: Usamos .default() e .optional()
+  // O .default() garante que o valor vá para o banco. O .optional() resolve a tipagem
+  // do RHF que reclama que o valor pode ser undefined (embora tenhamos o default).
+  priority: taskPrioritySchema.default("MEDIUM").optional(), 
+  status: taskStatusSchema.default("TODO").optional(), 
+  
   dueDate: z.date().optional(), 
 });
 
@@ -23,13 +27,11 @@ export const updateTaskSchema = z.object({
   dueDate: z.date().optional().nullable(),
 });
 
-// Schema para FILTROS (Atualizado com Sort)
+// Schema para FILTROS
 export const filterTaskSchema = z.object({
   status: taskStatusSchema.optional(),
   priority: taskPrioritySchema.optional(),
   from: z.date().optional(),
   to: z.date().optional(),
-  
-  // ✅ Novo campo para permitir ordenação
   sort: z.enum(["asc", "desc"]).optional(),
 });

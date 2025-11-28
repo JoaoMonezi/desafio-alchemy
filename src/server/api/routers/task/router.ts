@@ -1,68 +1,69 @@
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "@/lib/trpc/init";
 import { tasks, users } from "../../../../../database/schema";
 import { createTaskSchema, updateTaskSchema, filterTaskSchema } from "./schema";
-import { eq, and, desc, asc, gte, lte, sql } from "drizzle-orm"; 
+import { eq, and, desc, asc, gte, lte, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { TRPCError } from "@trpc/server";
 import { ratelimit } from "@/Config/ratelimit"; // <--- Importante: Configuração do Redis
 
-import { calculateDashboardMetrics } from "../dashboard/utils"; // <--- Importando a lógica extraída
 
-export const tasksRouter = createTRPCRouter({
+// Inferindo o tipo de inserção do Drizzle
+type TaskInsert = typeof tasks.$inferInsert;
+
+export const taskRouter = createTRPCRouter({
   // 1. CREATE
   create: protectedProcedure
     .input(createTaskSchema)
     .mutation(async ({ ctx, input }) => {
-      const userId = ctx.session.user.id;
+      // Usando '!' e 'as string' para segurança máxima do compilador
+      const userId = ctx.session.user!.id as string; 
 
       const { success } = await ratelimit.limit(`create_task:${userId}`);
       if (!success) {
-        throw new TRPCError({
-          code: "TOO_MANY_REQUESTS",
-          message: "Calma lá! Você está criando tarefas muito rápido.",
-        });
+        throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Muitas requisições." });
       }
 
+      // Construção estrita do objeto de inserção
       await ctx.db.insert(tasks).values({
-        ...input,
-        userId: userId,
-      });
+        title: input.title,
+        description: input.description,
+        priority: input.priority,
+        status: input.status,
+        dueDate: input.dueDate, 
+        userId: userId, 
+      } as TaskInsert); 
     }),
 
   // 2. GET ALL
   getAll: protectedProcedure
     .input(filterTaskSchema.optional())
     .query(async ({ ctx, input }) => {
-      const filters = [eq(tasks.userId, ctx.session.user.id)];
-
+      const userId = ctx.session.user!.id as string; 
+      // ✅ CORREÇÃO: Asserção de tipo em todos os 'userId'
+      const filters = [eq(tasks.userId, userId)];
+      
       if (input?.status) filters.push(eq(tasks.status, input.status));
       if (input?.priority) filters.push(eq(tasks.priority, input.priority));
       if (input?.from) filters.push(gte(tasks.dueDate, input.from));
       if (input?.to) filters.push(lte(tasks.dueDate, input.to));
+      
+      const orderBy = input?.sort === "asc" ? asc(tasks.dueDate) : 
+                      input?.sort === "desc" ? desc(tasks.dueDate) : 
+                      desc(tasks.createdAt);
 
-      const orderBy = input?.sort === "asc" 
-        ? asc(tasks.dueDate) 
-        : input?.sort === "desc" 
-        ? desc(tasks.dueDate) 
-        : desc(tasks.createdAt);
-
-      return ctx.db
-        .select()
-        .from(tasks)
-        .where(and(...filters))
-        .orderBy(orderBy);
+      return ctx.db.select().from(tasks).where(and(...filters)).orderBy(orderBy);
     }),
 
   // 3. GET BY ID
   getById: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
+      const userId = ctx.session.user!.id as string; 
       const [task] = await ctx.db
         .select()
         .from(tasks)
-        .where(and(eq(tasks.id, input.id), eq(tasks.userId, ctx.session.user.id)));
-      
+        .where(and(eq(tasks.id, input.id), eq(tasks.userId, userId)));
       return task || null;
     }),
 
@@ -70,21 +71,17 @@ export const tasksRouter = createTRPCRouter({
   update: protectedProcedure
     .input(updateTaskSchema)
     .mutation(async ({ ctx, input }) => {
-      const { id, ...updateData } = input;
-      await ctx.db
-        .update(tasks)
-        .set(updateData)
-        .where(and(eq(tasks.id, id), eq(tasks.userId, ctx.session.user.id)));
+      const userId = ctx.session.user!.id as string;
+      const { id, ...data } = input;
+      await ctx.db.update(tasks).set(data)
+        .where(and(eq(tasks.id, id), eq(tasks.userId, userId)));
     }),
 
   // 5. DELETE
   delete: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      await ctx.db
-        .delete(tasks)
-        .where(and(eq(tasks.id, input.id), eq(tasks.userId, ctx.session.user.id)));
+      const userId = ctx.session.user!.id as string;
+      await ctx.db.delete(tasks).where(and(eq(tasks.id, input.id), eq(tasks.userId, userId)));
     }),
-
- 
 });
