@@ -10,27 +10,26 @@ import { ratelimit } from "@/Config/ratelimit";
 type TaskInsert = typeof tasks.$inferInsert;
 
 export const taskRouter = createTRPCRouter({
-  // 1. CREATE (CORRIGIDO: Tratando dueDate para garantir que seja Date | null)
+  // 1. CREATE (Corrigido: Garantindo que todos os valores null/default são resolvidos)
   create: protectedProcedure
     .input(createTaskSchema)
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session.user!.id as string; 
-
+      
       const { success } = await ratelimit.limit(`create_task:${userId}`);
       if (!success) {
         throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Muitas requisições." });
       }
 
-      // ✅ CORREÇÃO APLICADA AQUI:
-      // Se input.dueDate for undefined, usamos || null para garantir que o Postgres aceite o valor.
-      const dueDateValue = input.dueDate || null; 
+      // ✅ CORREÇÃO: Forçamos a inserção de 'null' ou o objeto Date
+      const dueDateValue = input.dueDate instanceof Date ? input.dueDate : null; 
 
       await ctx.db.insert(tasks).values({
         title: input.title,
         description: input.description,
         priority: input.priority,
         status: input.status,
-        dueDate: dueDateValue, // Usamos o valor tratado
+        dueDate: dueDateValue, // Usamos o valor tratado (Date | null)
         userId: userId, 
       } as TaskInsert); 
     }),
@@ -73,7 +72,7 @@ export const taskRouter = createTRPCRouter({
       const userId = ctx.session.user!.id as string;
       const { id, dueDate, ...data } = input;
       
-      // Mapeia dueDate para null se for undefined
+      // Mapeia dueDate para null se for undefined ou null
       const dueDateUpdate = dueDate === undefined ? undefined : (dueDate || null);
 
       await ctx.db.update(tasks).set({
