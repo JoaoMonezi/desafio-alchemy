@@ -7,10 +7,10 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { ratelimit } from "@/Config/ratelimit";
 
-
 type TaskInsert = typeof tasks.$inferInsert;
 
 export const taskRouter = createTRPCRouter({
+  // 1. CREATE (CORRIGIDO: Tratando dueDate para garantir que seja Date | null)
   create: protectedProcedure
     .input(createTaskSchema)
     .mutation(async ({ ctx, input }) => {
@@ -21,16 +21,21 @@ export const taskRouter = createTRPCRouter({
         throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Muitas requisições." });
       }
 
+      // ✅ CORREÇÃO APLICADA AQUI:
+      // Se input.dueDate for undefined, usamos || null para garantir que o Postgres aceite o valor.
+      const dueDateValue = input.dueDate || null; 
+
       await ctx.db.insert(tasks).values({
         title: input.title,
         description: input.description,
         priority: input.priority,
         status: input.status,
-        dueDate: input.dueDate, 
+        dueDate: dueDateValue, // Usamos o valor tratado
         userId: userId, 
       } as TaskInsert); 
     }),
 
+  // 2. GET ALL
   getAll: protectedProcedure
     .input(filterTaskSchema.optional())
     .query(async ({ ctx, input }) => {
@@ -49,6 +54,7 @@ export const taskRouter = createTRPCRouter({
       return ctx.db.select().from(tasks).where(and(...filters)).orderBy(orderBy);
     }),
 
+  // 3. GET BY ID (Mantido)
   getById: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
@@ -60,15 +66,23 @@ export const taskRouter = createTRPCRouter({
       return task || null;
     }),
 
+  // 4. UPDATE (Aplica a mesma lógica para dueDate)
   update: protectedProcedure
     .input(updateTaskSchema)
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session.user!.id as string;
-      const { id, ...data } = input;
-      await ctx.db.update(tasks).set(data)
-        .where(and(eq(tasks.id, id), eq(tasks.userId, userId)));
+      const { id, dueDate, ...data } = input;
+      
+      // Mapeia dueDate para null se for undefined
+      const dueDateUpdate = dueDate === undefined ? undefined : (dueDate || null);
+
+      await ctx.db.update(tasks).set({
+        ...data,
+        dueDate: dueDateUpdate,
+      }).where(and(eq(tasks.id, id), eq(tasks.userId, userId)));
     }),
 
+  // 5. DELETE (Mantido)
   delete: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
