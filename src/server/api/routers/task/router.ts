@@ -5,34 +5,49 @@ import { eq, and, desc, asc, gte, lte, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { TRPCError } from "@trpc/server";
-import { ratelimit } from "@/Config/ratelimit"; // <--- Importante: Configuração do Redis
-
-
-// Inferindo o tipo de inserção do Drizzle
-type TaskInsert = typeof tasks.$inferInsert;
+import { ratelimit } from "@/Config/ratelimit";
 
 export const taskRouter = createTRPCRouter({
-  // 1. CREATE
+  // 1. CREATE (✅ CORRIGIDO)
   create: protectedProcedure
     .input(createTaskSchema)
     .mutation(async ({ ctx, input }) => {
-      // Usando '!' e 'as string' para segurança máxima do compilador
       const userId = ctx.session.user!.id as string; 
-
+      
       const { success } = await ratelimit.limit(`create_task:${userId}`);
       if (!success) {
-        throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Muitas requisições." });
+        throw new TRPCError({ 
+          code: "TOO_MANY_REQUESTS", 
+          message: "Muitas requisições." 
+        });
       }
 
-      // Construção estrita do objeto de inserção
-      await ctx.db.insert(tasks).values({
-        title: input.title,
-        description: input.description,
-        priority: input.priority,
-        status: input.status,
-        dueDate: input.dueDate, 
-        userId: userId, 
-      } as TaskInsert); 
+      // ✅ SOLUÇÃO: Adicionar timestamps explicitamente
+      const now = new Date();
+
+      try {
+        const [newTask] = await ctx.db
+          .insert(tasks)
+          .values({
+            title: input.title,
+            description: input.description,
+            priority: input.priority ?? "MEDIUM",  // ✅ Garante valor padrão
+            status: input.status ?? "TODO",        // ✅ Garante valor padrão
+            dueDate: input.dueDate ?? null,        // ✅ null se undefined
+            userId: userId,
+            createdAt: now,                        // ✅ Adiciona explicitamente
+            updatedAt: now,                        // ✅ Adiciona explicitamente
+          })
+          .returning();
+
+        return newTask;
+      } catch (error) {
+        console.error("Erro detalhado ao criar task:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Erro ao criar tarefa. Verifique os logs.",
+        });
+      }
     }),
 
   // 2. GET ALL
@@ -40,7 +55,6 @@ export const taskRouter = createTRPCRouter({
     .input(filterTaskSchema.optional())
     .query(async ({ ctx, input }) => {
       const userId = ctx.session.user!.id as string; 
-      // ✅ CORREÇÃO: Asserção de tipo em todos os 'userId'
       const filters = [eq(tasks.userId, userId)];
       
       if (input?.status) filters.push(eq(tasks.status, input.status));
@@ -67,21 +81,66 @@ export const taskRouter = createTRPCRouter({
       return task || null;
     }),
 
-  // 4. UPDATE
+  // 4. UPDATE (✅ CORRIGIDO)
   update: protectedProcedure
     .input(updateTaskSchema)
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session.user!.id as string;
       const { id, ...data } = input;
-      await ctx.db.update(tasks).set(data)
-        .where(and(eq(tasks.id, id), eq(tasks.userId, userId)));
+      
+      try {
+        const [updatedTask] = await ctx.db
+          .update(tasks)
+          .set({
+            ...data,
+            updatedAt: new Date(),  // ✅ Atualiza timestamp
+          })
+          .where(and(eq(tasks.id, id), eq(tasks.userId, userId)))
+          .returning();
+
+        if (!updatedTask) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Tarefa não encontrada."
+          });
+        }
+
+        return updatedTask;
+      } catch (error) {
+        console.error("Erro ao atualizar task:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Erro ao atualizar tarefa.",
+        });
+      }
     }),
 
-  // 5. DELETE
+  // 5. DELETE (✅ CORRIGIDO)
   delete: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session.user!.id as string;
-      await ctx.db.delete(tasks).where(and(eq(tasks.id, input.id), eq(tasks.userId, userId)));
+      
+      try {
+        const [deletedTask] = await ctx.db
+          .delete(tasks)
+          .where(and(eq(tasks.id, input.id), eq(tasks.userId, userId)))
+          .returning();
+
+        if (!deletedTask) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Tarefa não encontrada."
+          });
+        }
+
+        return { success: true, id: deletedTask.id };
+      } catch (error) {
+        console.error("Erro ao deletar task:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Erro ao deletar tarefa.",
+        });
+      }
     }),
 });
