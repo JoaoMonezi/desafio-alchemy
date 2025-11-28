@@ -1,7 +1,9 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import Google from "next-auth/providers/google"; 
+import Discord from "next-auth/providers/discord";
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
-import { db } from "@/lib/db";
+import { db } from "@/lib/db"; 
 import { users } from "../../database/schema";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
@@ -9,11 +11,11 @@ import { z } from "zod";
 import authConfig from "./auth.config";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  // ✅ SOLUÇÃO: Adapter simples (sem especificar tabelas)
-  adapter: DrizzleAdapter(db),
+  // ✅ ADAPTER: O adaptador é responsável por persistir OAuth no banco.
+  adapter: DrizzleAdapter(db), 
   
   session: { 
-    strategy: "jwt",
+    strategy: "jwt", 
     maxAge: 30 * 24 * 60 * 60,
   },
   
@@ -64,6 +66,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         console.log("✅ Login bem-sucedido:", user.email);
         
+        // Retornamos os dados limpos que o JWT espera
         return {
           id: user.id,
           email: user.email,
@@ -75,24 +78,24 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   ],
 
   callbacks: {
-    async jwt({ token, user, trigger, session }) {
+    // 1. JWT: Garante que os dados (ID, Nome, Imagem) vão para o token.
+    // No OAuth, o 'user' vem preenchido pelo Drizzle Adapter.
+    async jwt({ token, user }) {
       if (user) {
+        // Mapeamento Estrito
         token.sub = user.id;
-        token.email = user.email;
         token.name = user.name;
+        token.email = user.email;
         token.picture = user.image;
       }
-
-      if (trigger === "update" && session) {
-        token = { ...token, ...session };
-      }
-
       return token;
     },
 
+    // 2. SESSION: Lê de volta do token para o objeto de sessão.
     async session({ session, token }) {
       if (token.sub && session.user) {
         session.user.id = token.sub;
+        // Tipagem 'as string' para garantir que o TS não reclame
         session.user.email = token.email as string;
         session.user.name = token.name as string;
         session.user.image = token.picture as string;
