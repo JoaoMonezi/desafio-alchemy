@@ -5,20 +5,16 @@ import { NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 
 export async function GET(req: Request) {
+  const token = req.headers.get("x-session-token");
+
+  if (!token) {
+    return NextResponse.json({ isValid: false }, { status: 401 });
+  }
+
   try {
-    // 1. Pega token do cookie automaticamente (com salt certo)
-    const token = await getToken({
-      req,
-      secret: process.env.AUTH_SECRET!,
-    });
+    // token já É o sessionToken
+    const sessionToken = token;
 
-    if (!token || !token.sessionToken) {
-      return NextResponse.json({ isValid: false }, { status: 401 });
-    }
-
-    const sessionToken = token.sessionToken as string;
-
-    // 2. Confirma no banco
     const [dbSession] = await db
       .select()
       .from(sessions)
@@ -29,17 +25,13 @@ export async function GET(req: Request) {
         )
       );
 
-    if (!dbSession) {
-      return NextResponse.json({ isValid: false }, { status: 401 });
+    if (dbSession) {
+      return NextResponse.json({ isValid: true, userId: dbSession.userId });
     }
 
-    return NextResponse.json({
-      isValid: true,
-      userId: dbSession.userId,
-    });
-
-  } catch (err) {
-    console.error("Session check error:", err);
+    return NextResponse.json({ isValid: false }, { status: 401 });
+  } catch (error) {
+    console.error("Session check error:", error);
     return NextResponse.json({ isValid: false }, { status: 500 });
   }
 }
