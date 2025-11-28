@@ -12,8 +12,7 @@ import type { AdapterAccount } from "next-auth/adapters";
 export const statusEnum = pgEnum("status", ["TODO", "IN_PROGRESS", "DONE"]);
 export const priorityEnum = pgEnum("priority", ["LOW", "MEDIUM", "HIGH"]);
 
-// --- Users, Accounts, Sessions, Verification, Password Reset (Mantidos) ---
-// ... (código das outras tabelas) ...
+// --- Users, Accounts, Sessions, Verification, Password Reset ---
 export const users = pgTable("user", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   name: text("name"),
@@ -21,8 +20,8 @@ export const users = pgTable("user", {
   password: text("password"),
   emailVerified: timestamp("emailVerified", { mode: "date" }),
   image: text("image"),
-  createdAt: timestamp("createdAt").defaultNow(),
-  updatedAt: timestamp("updatedAt").defaultNow(),
+  createdAt: timestamp("createdAt").notNull().defaultNow(), // ✅ Ordem corrigida
+  updatedAt: timestamp("updatedAt").notNull().defaultNow(), // ✅ Ordem corrigida
 });
 
 export const accounts = pgTable("account", {
@@ -65,13 +64,13 @@ export const tasks = pgTable("task", {
     .$defaultFn(() => crypto.randomUUID()),
   title: text("title").notNull(),
   description: text("description"),
-  status: statusEnum("status").default("TODO").notNull(),
-  priority: priorityEnum("priority").default("MEDIUM").notNull(),
+  status: statusEnum("status").notNull().default("TODO"), // ✅ Ordem corrigida
+  priority: priorityEnum("priority").notNull().default("MEDIUM"), // ✅ Ordem corrigida
   dueDate: timestamp("dueDate", { mode: "date" }),
   
-  // ✅ CORREÇÃO APLICADA AQUI: forçar notNull()
-  createdAt: timestamp("createdAt").defaultNow().notNull(), 
-  updatedAt: timestamp("updatedAt").defaultNow().notNull(), 
+  // 🔥 CORREÇÃO CRÍTICA: .notNull() ANTES de .defaultNow()
+  createdAt: timestamp("createdAt").notNull().defaultNow(), 
+  updatedAt: timestamp("updatedAt").notNull().defaultNow(), 
   
   userId: text("userId")
     .notNull()
